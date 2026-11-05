@@ -351,18 +351,26 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.addEventListener('click', (e) => {
     const activeTab = document.querySelector('.nav-link.active');
     if (activeTab && activeTab.id === 'pneumatic-tab') {
-      if (e.target.tagName !== 'BUTTON' && !e.target.classList.contains('nav-link') && e.target.tagName !== 'INPUT') {
+      const tagName = e.target.tagName;
+      // ★ 對齊傳送端，排除 SELECT 與 OPTION，解決下拉無法點擊的問題
+      if (tagName !== 'BUTTON' && !e.target.classList.contains('nav-link') && tagName !== 'INPUT' && tagName !== 'SELECT' && tagName !== 'OPTION') {
          if(pBarcodeInput) pBarcodeInput.focus();
       }
     }
   });
 
-  if(pBarcodeInput) {
     pBarcodeInput.addEventListener('keypress', async (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const barcodeValue = pBarcodeInput.value.trim();
         if (!barcodeValue) return;
+
+        // ★ 核心功能：如果目前在「昨日」模式，刷入條碼瞬間強制切回「今日」
+        const dateSelect = document.getElementById('pneumaticDateSelect');
+        if (dateSelect && dateSelect.value === 'yesterday') {
+          dateSelect.value = 'today';
+          dateSelect.dispatchEvent(new Event('change'));
+        }
 
         const parts = barcodeValue.split(';');
         if (parts.length < 5 || !parts[2] || !parts[2].startsWith('8')) {
