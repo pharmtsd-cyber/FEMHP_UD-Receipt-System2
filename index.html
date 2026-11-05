@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>住院藥局收發系統 - 首頁</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/theme.css"> <!-- ★ 套用海軍綠主題 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> <!-- ★ 引入提示工具 -->
+</head>
+<body class="bg-light d-flex align-items-center" style="min-height: 100vh; position: relative;">
+  <div class="container text-center">
+    <h1 class="mb-5 text-primary fw-bold"><i class="bi bi-hospital me-2"></i>住院藥局收發系統</h1>
+    
+    <div class="row justify-content-center gap-3">
+      
+      <!-- 第一個入口：傳送人員 (改為 col-md-4 讓三個卡片完美等分) -->
+      <div class="col-md-3" style="width: 30%;">
+        <div class="card shadow-sm portal-card h-100 py-4 border-success" onclick="location.href='transport_login.html'">
+          <div class="card-body">
+            <i class="bi bi-person-walking display-1 text-success mb-3 d-block"></i>
+            <h4 class="card-title text-success fw-bold">傳送人員大廳</h4>
+            <p class="text-muted mt-3 fs-6">出院帶藥簽收<br>與文件送件</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 第二個入口：藥師 -->
+      <div class="col-md-3" style="width: 30%;">
+        <div class="card shadow-sm portal-card h-100 py-4 border-primary" onclick="location.href='pharmacist_login.html'">
+          <div class="card-body">
+            <i class="bi bi-capsule display-1 text-primary mb-3 d-block"></i>
+            <h4 class="card-title text-primary fw-bold">藥師作業大廳</h4>
+            <p class="text-muted mt-3 fs-6">氣送作業、<br>文件收單與管理</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 第三個入口：歷史查詢大廳 -->
+      <div class="col-md-3" style="width: 30%;">
+        <div class="card shadow-sm portal-card h-100 py-4 border-secondary" onclick="location.href='public_records.html'">
+          <div class="card-body">
+            <i class="bi bi-clock-history display-1 text-secondary mb-3 d-block"></i>
+            <h4 class="card-title text-secondary fw-bold">歷史收發查詢</h4>
+            <p class="text-muted mt-3 fs-6">免登入！<br>查看所有帶藥與文件紀錄</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ★ 秘密入口：右下角的半透明小鎖頭 -->
+  <div class="position-fixed bottom-0 end-0 p-3">
+    <i class="bi bi-shield-lock-fill text-secondary" style="cursor: pointer; font-size: 1.5rem; opacity: 0.15; transition: opacity 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.15'" onclick="promptAdminPassword()" title="管理員秘密通道"></i>
+  </div>
+
+<script src="js/config.js"></script>
+  <script>
+    // 點擊秘密小鎖頭，直接前往主管專區 (該頁面已經有完整的登入與密碼防護)
+    function promptAdminPassword() {
+      // 顯示一個小動畫，然後跳轉
+      Swal.fire({
+        title: '前往管理專區...',
+        timer: 800,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      }).then(() => {
+        window.location.href = 'transport_admin.html';
+      });
+    }
+  </script>
+</body>
+</html>
