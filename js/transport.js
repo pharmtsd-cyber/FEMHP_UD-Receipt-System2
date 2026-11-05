@@ -126,38 +126,26 @@ barcodeInput.addEventListener('keypress', async (e) => {
         if (isNewItem) {
           scannedItems.add(itemKey);
         } else {
-          // 遇到重複刷入，先播放錯誤音效提醒
           playErrorSound(); 
-          
-          // 跳出 SweetAlert 視窗讓使用者選擇
           const { value: userChoice } = await Swal.fire({
             title: '⚠️ 重複刷入提示',
             text: `領藥號 ${dispenseNo} 剛剛已經刷入過了！請問您要：`,
             icon: 'warning',
-            showDenyButton: true,
-            showCancelButton: true,
-            confirmButtonText: '覆蓋重刷 (維持傳送)',
-            denyButtonText: '取消領藥',
-            cancelButtonText: '取消動作 (不記錄)',
-            confirmButtonColor: '#198754', // 綠色
-            denyButtonColor: '#dc3545',    // 紅色
-            allowOutsideClick: false
+            showDenyButton: true, showCancelButton: true,
+            confirmButtonText: '覆蓋重刷 (維持傳送)', denyButtonText: '取消領藥', cancelButtonText: '取消動作 (不記錄)',
+            confirmButtonColor: '#198754', denyButtonColor: '#dc3545', allowOutsideClick: false
           });
 
           if (userChoice === true) {
-            // 選擇「覆蓋重刷」
             finalTaskType = '傳送';
             isDuplicateLabel = true;
           } else if (userChoice === false) {
-            // 選擇「取消領藥」
             finalTaskType = '取消領藥';
             isDuplicateLabel = true;
             isCancelDispense = true;
+            scannedItems.delete(itemKey); // ★ 核心修改：如果是取消領藥，把筆數扣除 (-1)
           } else {
-            // 選擇「取消動作」，直接終止
-            barcodeInput.value = '';
-            barcodeInput.focus();
-            return; 
+            barcodeInput.value = ''; barcodeInput.focus(); return; 
           }
         }
 
@@ -338,9 +326,12 @@ function addCardToUI(data, cardId, isPending, isDuplicate = false, isCancel = fa
         </h3>
         <span class="text-muted fs-4">${timeString}</span>
       </div>
-      <div class="row">
-        <div class="col-12 fs-5 text-secondary">病歷號：<span class="fw-bold text-dark">${data.chartNo}</span> | 處方日期：${data.rxDate} 
-        ${isCancel ? `<span class="badge bg-danger ms-2">${data.type}</span>` : ''}</div>
+      <div class="mb-2 fs-5 text-secondary">病歷號：<span class="fw-bold text-dark">${data.chartNo}</span> | 處方日期：${data.rxDate}</div>
+      <div class="fs-5 text-secondary border-top pt-2">
+        <span class="badge ${isCancel ? 'bg-danger' : 'bg-success'} me-2 fs-6">
+          <i class="bi ${isCancel ? 'bi-x-circle' : 'bi-person-walking'} me-1"></i>${data.type}
+        </span>
+        由 <span class="fw-bold text-success">${data.staffName} 傳送</span> 處理
       </div>
     </div>`;
   container.insertBefore(card, container.firstChild);
@@ -595,3 +586,62 @@ async function acknowledgeReturn(signId) {
     }
   }
 }
+
+// === 綁定今日/昨日清單切換 (傳送端) ===
+document.getElementById('medDateSelect')?.addEventListener('change', async (e) => {
+  const mode = e.target.value;
+  const container = document.getElementById('cardContainer');
+  const totalSpan = document.getElementById('totalCount');
+  const input = document.getElementById('barcodeInput');
+  
+  if (mode === 'today') {
+    input.disabled = false;
+    input.placeholder = "請刷入藥袋條碼...";
+    input.focus();
+    
+    // 從 LocalStorage 還原今日畫面
+    container.innerHTML = '<div class="text-muted text-center mt-5 fs-4" id="emptyState" style="display:none;">目前尚無紀錄</div>';
+    scannedItems.clear();
+    const localKey = `medLog_transport_${sessionStorage.getItem('transId')}`;
+    const localData = JSON.parse(localStorage.getItem(localKey) || '{"date":"","items":[]}');
+    
+    localData.items.forEach(item => {
+      if (item.isCancelDispense) scannedItems.delete(`${item.data.dispenseNo}-${item.data.rxDate}`);
+      else scannedItems.add(`${item.data.dispenseNo}-${item.data.rxDate}`);
+      addCardToUI(item.data, item.cardId, true, item.isDuplicateLabel, item.isCancelDispense);
+    });
+    totalSpan.textContent = scannedItems.size;
+    if (localData.items.length === 0) document.getElementById('emptyState').style.display = 'block';
+
+  } else {
+    // 查詢昨日歷史
+    input.disabled = true;
+    input.placeholder = "昨日模式僅供查詢歷史...";
+    container.innerHTML = '<div class="text-center mt-5"><div class="spinner-border text-success"></div><div class="mt-2 text-muted fs-5">讀取昨日資料中...</div></div>';
+    
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const yStr = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
+    
+    const res = await callGAS('getDailyRecords', { startDate: yStr, endDate: yStr });
+    if (res.success) {
+      container.innerHTML = '';
+      const myItems = res.data.filter(r => r.staffId == sessionStorage.getItem('transId')).reverse();
+      
+      const latestState = {}; // 用來算淨筆數
+      myItems.forEach(r => {
+        latestState[`${r.dispNo}-${r.rxDate}`] = r.TaskType;
+        const mockData = { dispenseNo: r.dispNo, rxDate: r.rxDate, chartNo: r.chartNo, type: r.TaskType, staffName: r.staffName, timeString: r.time };
+        addCardToUI(mockData, 'y_'+Date.now()+Math.random(), true, false, r.TaskType === '取消領藥');
+      });
+      
+      let validCount = 0;
+      Object.values(latestState).forEach(type => { if (type !== '取消領藥') validCount++; });
+      totalSpan.textContent = validCount;
+      
+      if (myItems.length === 0) container.innerHTML = '<div class="text-muted text-center mt-5 fs-4">昨日無紀錄</div>';
+    } else {
+      container.innerHTML = '<div class="text-danger text-center mt-5 fs-4">連線失敗</div>';
+      totalSpan.textContent = "0";
+    }
+  }
+});
