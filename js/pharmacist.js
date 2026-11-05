@@ -143,7 +143,7 @@ function renderPharmaDocs() {
     let sendTimeStr = item.SendTime ? new Date(item.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
     let receiveTimeStr = item.ReceiveTime ? new Date(item.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
 
-    const editArgs = `'${item.Title}', '${item.ReplyOption || ''}', '${item.ReceiveNote || ''}', '${item.DocType}', '${item.Ward || ''}', '${item.ChartNo || ''}', '${item.Quantity || ''}', '${item.PickupNo || ''}', '${item.SenderName}', '${item.SendNote || ''}'`;
+    const editArgs = `'${item.SignId}', '${item.ReplyOption || ''}', '${item.ReceiveNote || ''}', '${item.DocType}', '${item.Ward || ''}', '${item.ChartNo || ''}', '${item.Quantity || ''}', '${item.PickupNo || ''}', '${item.SenderName}', '${item.SendNote || ''}'`;
 
     return `
     <div class="card mb-2 shadow-sm border-start border-4 ${isPending ? 'border-warning' : 'border-primary'}">
@@ -162,10 +162,10 @@ function renderPharmaDocs() {
             <i class="bi bi-person-walking"></i> ${item.SenderName} (${sendTimeStr})
             ${!isPending ? `<br><i class="bi bi-capsule"></i> ${item.PharmaName} (${receiveTimeStr})` : ''}
           </div>
-          ${isPending ?
-            `<button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.Title}')">收單</button>` :
-            `<button class="btn btn-outline-primary btn-sm py-0" onclick="editDocInfo(${editArgs})">修改</button>`
-          }
+            ${isPending ?
+                `<button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.SignId}')">收單</button>` :
+                `<button class="btn btn-outline-primary btn-sm py-0" onclick="editDocInfo(${editArgs})">修改</button>`
+              }
         </div>
       </div>
     </div>`;
