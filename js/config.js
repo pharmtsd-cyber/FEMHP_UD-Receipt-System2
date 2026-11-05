@@ -1,30 +1,17 @@
 // === 系統共用設定檔 (config.js) ===
 
-// 1. 原本的總機 (負責寫入/修改/登入/狀態更新)
-const API_URL_WRITE = "https://defaultf611cf53b6864814b03558908d4900.be.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2309b831793f4f4fa7cf3f2a7e72ab4a/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=rqleQ5OYOGNFAk5ozBhVjE8Sxs_Pufr6aQ3DDI-ONV4";
-
-// 2. 新增的查詢專機 (負責純讀取資料) -> 請填入你新建流程的 URL
-const API_URL_READ = "https://defaultf611cf53b6864814b03558908d4900.be.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/81f4781d6d1c4b96b98e81b91259049c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=2IkOg3OCv_cwrTQvPYaK42seYgN0ZSs0QhBtFN8N1eA";
-
-// 3. 定義哪些動作屬於「純讀取」(配合未來的讀寫分離)
-const READ_ACTIONS = [
-  'getConfigData', 'getTodayDocRecords', 'getPharmaReplyOptions',
-  'getPharmaDocRecords', 'getDailyRecords', 'getPublicDocRecords', 'getStaffList',
-  'transportLogin', 'pharmacistLogin', 'adminLogin'
-];
+// ★ 請將下方引號內的網址替換為您剛剛在 Google Apps Script 部署取得的「網頁應用程式網址」
+const API_URL = "https://script.google.com/macros/s/AKfycbzW-FXXIYAWWTaMyD5ppmt732aqzVqpsDCemhfLetHB3ja08zQZqhA2PD-zYLgEfjym/exec";
 
 async function callGAS(action, dataObj = {}, retries = 3) {
-  // 智慧分流：如果有設定 API_URL_READ 且動作在純讀取名單內，就走 READ 專線，否則走 WRITE 專線
-  const targetUrl = (API_URL_READ !== "" && READ_ACTIONS.includes(action)) 
-                    ? API_URL_READ : API_URL_WRITE;
-  
-  // ★ 修正：移除 encodeURIComponent 過度包裝，直接將 dataObj 放入 payload
+  // 將動作與資料打包成 payload 傳送給後端
   const payload = { action: action, payload: dataObj };
   
   try {
-    const response = await fetch(targetUrl, {
+    const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // ★ 設定為 text/plain 避免 GAS 產生 CORS (跨來源請求) 阻擋問題
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload) 
     });
 
@@ -66,7 +53,9 @@ async function callGAS(action, dataObj = {}, retries = 3) {
   }
 }
 
-// 4. 全局共用的 Toast 提示工具
+// ==========================================
+// 全局共用的 Toast 提示工具
+// ==========================================
 const Toast = Swal.mixin({
   toast: true,
   position: 'top-end',
