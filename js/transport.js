@@ -39,7 +39,7 @@ function playErrorSound() {
 }
 
 // ==========================================
-// 主邏輯控制塊 (已將所有的 DOMContentLoaded 完美合併)
+// 主邏輯控制塊 
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
   // 1. 權限檢查
@@ -75,11 +75,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   let localData = JSON.parse(localStorage.getItem(localKey) || '{"date":"","items":[]}');
 
   if (localData.date !== today) {
-    // 如果日期不是今天，清空舊紀錄
     localData = { date: today, items: [] };
     localStorage.setItem(localKey, JSON.stringify(localData));
   } else {
-    // 如果是今天，把畫面與防重複機制 (Set) 還原
     localData.items.forEach(item => {
       if (item.isCancelDispense) {
           scannedItems.delete(`${item.data.dispenseNo}-${item.data.rxDate}`);
@@ -97,7 +95,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       const activeTab = document.querySelector('.nav-link.active');
       if (activeTab && activeTab.id === 'discharge-tab') {
         const tagName = e.target.tagName;
-        // ★ 將 SELECT 與 OPTION 排除，讓下拉選單可以正常點擊
         if (tagName !== 'BUTTON' && !e.target.classList.contains('nav-link') && tagName !== 'INPUT' && tagName !== 'SELECT' && tagName !== 'OPTION') {
            if(barcodeInput) barcodeInput.focus();
         }
@@ -114,7 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dateSelect = document.getElementById('medDateSelect');
         if (dateSelect && dateSelect.value === 'yesterday') {
           dateSelect.value = 'today';
-          dateSelect.dispatchEvent(new Event('change')); // 觸發重整畫面的事件
+          dateSelect.dispatchEvent(new Event('change'));
         }
 
         const parts = barcodeValue.split(';');
@@ -135,17 +132,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isNewItem = !scannedItems.has(itemKey);
         const cardId = 'card_' + Date.now();
 
-        let finalTaskType = '傳送'; // 預設狀態
+        let finalTaskType = '傳送'; 
         let isDuplicateLabel = false;
         let isCancelDispense = false;
 
         if (isNewItem) {
           scannedItems.add(itemKey);
         } else {
-          // 遇到重複刷入，先播放錯誤音效提醒
           playErrorSound(); 
-          
-          // 跳出 SweetAlert 視窗讓使用者選擇
           const { value: userChoice } = await Swal.fire({
             title: '⚠️ 重複刷入提示',
             text: `領藥號 ${dispenseNo} 剛剛已經刷入過了！請問您要：`,
@@ -155,44 +149,41 @@ document.addEventListener('DOMContentLoaded', async () => {
             confirmButtonText: '覆蓋重刷 (維持傳送)',
             denyButtonText: '取消領藥',
             cancelButtonText: '取消動作 (不記錄)',
-            confirmButtonColor: '#198754', // 綠色
-            denyButtonColor: '#dc3545',    // 紅色
+            confirmButtonColor: '#198754', 
+            denyButtonColor: '#dc3545',    
             allowOutsideClick: false
           });
 
           if (userChoice === true) {
-            // 選擇「覆蓋重刷」
             finalTaskType = '傳送';
             isDuplicateLabel = true;
           } else if (userChoice === false) {
-            // 選擇「取消領藥」
             finalTaskType = '取消領藥';
             isDuplicateLabel = true;
             isCancelDispense = true;
-            scannedItems.delete(itemKey); // ★ 核心修改：如果是取消領藥，把筆數扣除 (-1)
+            scannedItems.delete(itemKey); // 從 Set 中移除
           } else {
-            // 選擇「取消動作」，直接終止
             barcodeInput.value = '';
             barcodeInput.focus();
             return; 
           }
         }
 
-        const dataForCard = { chartNo, dispenseNo, rxDate, staffName: transName, type: finalTaskType };
+        // ★ 加入 staffId 以利卡片渲染
+        const dataForCard = { chartNo, dispenseNo, rxDate, staffName: transName, staffId: transId, type: finalTaskType };
         
-        // ★ 記錄刷入的當下時間，避免重新整理後時間跑掉
         const now = new Date();
         dataForCard.timeString = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
         
         if (isNewItem) {
           addCardToUI(dataForCard, cardId, true); 
-          if(totalCountSpan) totalCountSpan.textContent = scannedItems.size;
         } else {
           addCardToUI(dataForCard, cardId, true, isDuplicateLabel, isCancelDispense); 
-          if(totalCountSpan) totalCountSpan.textContent = scannedItems.size;
         }
+        
+        // ★ 核心修復：不論是新增還是取消，統一在最後一行將「計算後的剩餘筆數」更新至畫面
+        if(totalCountSpan) totalCountSpan.textContent = scannedItems.size;
 
-        // ★ 將此筆紀錄推入 LocalStorage 儲存
         localData.items.push({
           data: dataForCard,
           cardId: cardId,
@@ -204,7 +195,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         barcodeInput.value = '';
         barcodeInput.focus();
 
-        // 將最後決定的狀態傳給後端
         const result = await callGAS('logDischargeMeds', {
           date: document.getElementById('medDate').value,
           barcode: barcodeValue,
@@ -255,8 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isRequired = requirement === '必填' ? 'required' : '';
             const star = requirement === '必填' ? '<span class="text-danger">*</span>' : '<span class="text-muted fs-6">(選填)</span>';
             
-            // ★ 新增這段：客製化不同欄位的提示文字 (Placeholder)
-            let customPlaceholder = `請輸入${key}...`; // 預設文字
+            let customPlaceholder = `請輸入${key}...`;
             if (key === '病房床號') {
               customPlaceholder = '例如: 08A011';
             } else if (key === '數量/張數') {
@@ -281,7 +270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 6. 攔截表單送出 (抓取最新四個欄位)
+  // 6. 攔截表單送出
   const docForm = document.getElementById('docForm');
   if (docForm) {
     docForm.addEventListener('submit', async (e) => {
@@ -313,7 +302,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         docForm.reset();
         document.getElementById('dynamicFieldsContainer').innerHTML = '<div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>';
         
-        // 延遲 1.5 秒再重整，確保雲端已經將資料寫死，避免讀到舊資料
         setTimeout(() => {
           loadTodayDocs(); 
         }, 1500);
@@ -325,7 +313,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 7. 綁定重整按鈕與頁籤切換
   const btnRefreshDoc = document.getElementById('btnRefreshDoc');
   if (btnRefreshDoc) btnRefreshDoc.addEventListener('click', loadTodayDocs);
   const docTab = document.getElementById('doc-tab');
@@ -361,7 +348,8 @@ function addCardToUI(data, cardId, isPending, isDuplicate = false, isCancel = fa
         <span class="badge ${isCancel ? 'bg-danger' : 'bg-success'} me-2 fs-6">
           <i class="bi ${isCancel ? 'bi-x-circle' : 'bi-person-walking'} me-1"></i>${data.type}
         </span>
-        由 <span class="fw-bold text-success">${data.staffName} 傳送</span> 處理
+        <!-- ★ 卡片底部增加顯示 staffId -->
+        由 <span class="fw-bold text-success">${data.staffName} (${data.staffId}) 傳送</span> 處理
       </div>
     </div>`;
   container.insertBefore(card, container.firstChild);
@@ -391,12 +379,10 @@ async function loadDocConfig() {
   }
 }
 
-// ★ 加入：當任何頁籤 (包含主頁籤與子頁籤) 被點擊顯示時，自動重整資料
 document.addEventListener('DOMContentLoaded', () => {
   const allTabs = document.querySelectorAll('button[data-bs-toggle="tab"], button[data-bs-toggle="pill"]');
   allTabs.forEach(tab => {
     tab.addEventListener('shown.bs.tab', (e) => {
-      // 只要切換到文件相關的頁籤，就觸發重整
       if (['doc-tab', 'doc-unresolved-tab', 'doc-resolved-tab'].includes(e.target.id)) {
         loadTodayDocs();
       }
@@ -404,7 +390,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// ★ 替換原本的 loadTodayDocs 函數
 async function loadTodayDocs() {
   const unresolvedContainer = document.getElementById('docUnresolved');
   const resolvedContainer = document.getElementById('docResolved');
@@ -423,14 +408,12 @@ async function loadTodayDocs() {
   const res = await callGAS('getTodayDocRecords');
 
   if (res.success) {
-    // 嚴格抓取近 48 小時的時間戳記
     const limitTimestamp = new Date().getTime() - (48 * 60 * 60 * 1000);
-    const todayStr = new Date().toLocaleDateString('zh-TW'); // 用於比對今日已結案
+    const todayStr = new Date().toLocaleDateString('zh-TW');
 
     let unresolvedData = [];
     let resolvedData = [];
 
-    // 資料分流邏輯
     res.data.forEach(item => {
       const itemTime = new Date(item.sendTime || item.SendTime || 0);
       const isClosed = item.isClosed || item.IsClosed || (item.status && (item.status.includes('已結案') || item.status.includes('已領回')));
@@ -442,17 +425,13 @@ async function loadTodayDocs() {
       }
     });
 
-    // 依時間新到舊排序
     const sortDesc = (a, b) => new Date(b.sendTime || b.SendTime || 0) - new Date(a.sendTime || a.SendTime || 0);
     unresolvedData.sort(sortDesc);
     resolvedData.sort(sortDesc);
 
-    // 卡片渲染函數
     const renderCards = (dataArray, emptyMsg) => {
-      // 1. 若無資料，直接回傳字串 (String)
       if (dataArray.length === 0) return `<div class="text-muted text-center py-5 fs-5">${emptyMsg}</div>`;
       
-      // 2. 若有資料，用 map 產生陣列後，直接在裡面加上 .join('') 轉回字串 (String)
       return dataArray.map(item => {
         let details = [];
         const wardVal = item.ward || item.Ward;
@@ -499,7 +478,6 @@ async function loadTodayDocs() {
       }).join(''); 
     };
 
-    // ★ 呼叫時不再加上 .join('')
     unresolvedContainer.innerHTML = renderCards(unresolvedData, '近兩日無未結案紀錄');
     resolvedContainer.innerHTML = renderCards(resolvedData, '今日尚無已結案紀錄');
 
@@ -583,13 +561,12 @@ async function acknowledgeReturn(signId) {
     text: '領回後此單據將正式結案，不再顯示於目前的清單中。',
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonColor: '#198754', // 綠色確認鈕
+    confirmButtonColor: '#198754',
     confirmButtonText: '<i class="bi bi-check2-circle me-1"></i>是的，確認領回',
     cancelButtonText: '取消'
   });
 
   if (isConfirmed) {
-    // 顯示處理中動畫
     Swal.fire({
       title: '處理結案中...',
       allowOutsideClick: false,
@@ -598,16 +575,14 @@ async function acknowledgeReturn(signId) {
 
     const payload = {
       signId: signId,
-      returnerId: transId, // 抓取目前登入的傳送員編
-      returnerName: transName // 抓取目前登入的傳送姓名
+      returnerId: transId,
+      returnerName: transName
     };
 
-    // 呼叫 API 總機進行結案
     const res = await callGAS('acknowledgeReturn', payload);
 
     if (res.success) {
       Swal.fire({ icon: 'success', title: '已成功領回並結案', timer: 1500, showConfirmButton: false });
-      // 延遲 1.5 秒再重整畫面
       setTimeout(() => {
         loadTodayDocs(); 
       }, 1500);
@@ -629,7 +604,6 @@ document.getElementById('medDateSelect')?.addEventListener('change', async (e) =
     input.placeholder = "請刷入藥袋條碼...";
     input.focus();
     
-    // 從 LocalStorage 還原今日畫面
     container.innerHTML = '<div class="text-muted text-center mt-5 fs-4" id="emptyState" style="display:none;">目前尚無紀錄</div>';
     scannedItems.clear();
     const localKey = `medLog_transport_${sessionStorage.getItem('transId')}`;
@@ -644,9 +618,8 @@ document.getElementById('medDateSelect')?.addEventListener('change', async (e) =
     if (localData.items.length === 0) document.getElementById('emptyState').style.display = 'block';
 
   } else {
-    // 查詢昨日歷史
     input.placeholder = "昨日歷史 (直接刷條碼會切回今日)...";
-    input.focus(); // ★ 保持游標對焦
+    input.focus(); 
     container.innerHTML = '<div class="text-center mt-5"><div class="spinner-border text-success"></div><div class="mt-2 text-muted fs-5">讀取昨日資料中...</div></div>';
     
     const y = new Date(); y.setDate(y.getDate() - 1);
@@ -657,10 +630,11 @@ document.getElementById('medDateSelect')?.addEventListener('change', async (e) =
       container.innerHTML = '';
       const myItems = res.data.filter(r => r.staffId == sessionStorage.getItem('transId')).reverse();
       
-      const latestState = {}; // 用來算淨筆數
+      const latestState = {}; 
       myItems.forEach(r => {
         latestState[`${r.dispNo}-${r.rxDate}`] = r.TaskType;
-        const mockData = { dispenseNo: r.dispNo, rxDate: r.rxDate, chartNo: r.chartNo, type: r.TaskType, staffName: r.staffName, timeString: r.time };
+        // ★ 加入 staffId 給昨日歷史的 mockData
+        const mockData = { dispenseNo: r.dispNo, rxDate: r.rxDate, chartNo: r.chartNo, type: r.TaskType, staffName: r.staffName, staffId: r.staffId, timeString: r.time };
         addCardToUI(mockData, 'y_'+Date.now()+Math.random(), true, false, r.TaskType === '取消領藥');
       });
       
