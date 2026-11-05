@@ -387,36 +387,32 @@ document.addEventListener('DOMContentLoaded', () => {
         let isCancelDispense = false;
 
         if (isNewItem) {
-          pScannedItems.add(itemKey);
+          scannedItems.add(itemKey);
         } else {
-          playErrorSound();
+          playErrorSound(); 
           const { value: userChoice } = await Swal.fire({
             title: '⚠️ 重複刷入提示',
             text: `領藥號 ${dispenseNo} 剛剛已經刷入過了！請問您要：`,
             icon: 'warning',
-            showDenyButton: true,
-            showCancelButton: true,
-            confirmButtonText: '覆蓋重刷 (維持氣送)',
-            denyButtonText: '取消領藥',
-            cancelButtonText: '取消動作 (不記錄)',
-            confirmButtonColor: '#198754',
-            denyButtonColor: '#dc3545',
-            allowOutsideClick: false
+            showDenyButton: true, showCancelButton: true,
+            confirmButtonText: '覆蓋重刷 (維持傳送)', denyButtonText: '取消領藥', cancelButtonText: '取消動作 (不記錄)',
+            confirmButtonColor: '#198754', denyButtonColor: '#dc3545', allowOutsideClick: false
           });
 
           if (userChoice === true) {
-            finalTaskType = '氣送';
+            finalTaskType = '傳送';
             isDuplicateLabel = true;
           } else if (userChoice === false) {
             finalTaskType = '取消領藥';
             isDuplicateLabel = true;
             isCancelDispense = true;
+            scannedItems.delete(itemKey); // ★ 核心修改：如果是取消領藥，把筆數扣除 (-1)
           } else {
-            pBarcodeInput.value = '';
-            pBarcodeInput.focus();
-            return;
+            barcodeInput.value = ''; barcodeInput.focus(); return; 
           }
         }
+        
+        // ... (原有的加入卡片與 LocalStorage 邏輯不用動，請接續保留)
 
         const payload = {
           date: pDateInput.value,
@@ -519,4 +515,63 @@ document.addEventListener('DOMContentLoaded', () => {
   if(pChart) pChart.addEventListener('input', renderPharmaDocs);
   if(pWard) pWard.addEventListener('input', renderPharmaDocs);
   if(pDisp) pDisp.addEventListener('input', renderPharmaDocs);
+});
+
+// === 綁定今日/昨日清單切換 (傳送端) ===
+document.getElementById('medDateSelect')?.addEventListener('change', async (e) => {
+  const mode = e.target.value;
+  const container = document.getElementById('cardContainer');
+  const totalSpan = document.getElementById('totalCount');
+  const input = document.getElementById('barcodeInput');
+  
+  if (mode === 'today') {
+    input.disabled = false;
+    input.placeholder = "請刷入藥袋條碼...";
+    input.focus();
+    
+    // 從 LocalStorage 還原今日畫面
+    container.innerHTML = '<div class="text-muted text-center mt-5 fs-4" id="emptyState" style="display:none;">目前尚無紀錄</div>';
+    scannedItems.clear();
+    const localKey = `medLog_transport_${sessionStorage.getItem('transId')}`;
+    const localData = JSON.parse(localStorage.getItem(localKey) || '{"date":"","items":[]}');
+    
+    localData.items.forEach(item => {
+      if (item.isCancelDispense) scannedItems.delete(`${item.data.dispenseNo}-${item.data.rxDate}`);
+      else scannedItems.add(`${item.data.dispenseNo}-${item.data.rxDate}`);
+      addCardToUI(item.data, item.cardId, true, item.isDuplicateLabel, item.isCancelDispense);
+    });
+    totalSpan.textContent = scannedItems.size;
+    if (localData.items.length === 0) document.getElementById('emptyState').style.display = 'block';
+
+  } else {
+    // 查詢昨日歷史
+    input.disabled = true;
+    input.placeholder = "昨日模式僅供查詢歷史...";
+    container.innerHTML = '<div class="text-center mt-5"><div class="spinner-border text-success"></div><div class="mt-2 text-muted fs-5">讀取昨日資料中...</div></div>';
+    
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const yStr = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
+    
+    const res = await callGAS('getDailyRecords', { startDate: yStr, endDate: yStr });
+    if (res.success) {
+      container.innerHTML = '';
+      const myItems = res.data.filter(r => r.staffId == sessionStorage.getItem('transId')).reverse();
+      
+      const latestState = {}; // 用來算淨筆數
+      myItems.forEach(r => {
+        latestState[`${r.dispNo}-${r.rxDate}`] = r.TaskType;
+        const mockData = { dispenseNo: r.dispNo, rxDate: r.rxDate, chartNo: r.chartNo, type: r.TaskType, staffName: r.staffName, timeString: r.time };
+        addCardToUI(mockData, 'y_'+Date.now()+Math.random(), true, false, r.TaskType === '取消領藥');
+      });
+      
+      let validCount = 0;
+      Object.values(latestState).forEach(type => { if (type !== '取消領藥') validCount++; });
+      totalSpan.textContent = validCount;
+      
+      if (myItems.length === 0) container.innerHTML = '<div class="text-muted text-center mt-5 fs-4">昨日無紀錄</div>';
+    } else {
+      container.innerHTML = '<div class="text-danger text-center mt-5 fs-4">連線失敗</div>';
+      totalSpan.textContent = "0";
+    }
+  }
 });
