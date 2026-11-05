@@ -54,7 +54,15 @@
           <div class="col-lg-7">
             <div class="card shadow h-100">
               <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                <h4 class="m-0 text-success fw-bold">✅ 今日氣送作業清單</h4>
+                <div class="d-flex align-items-center">
+                  <h4 class="m-0 text-success fw-bold d-flex align-items-center">
+                    ✅ 
+                    <select id="pneumaticDateSelect" class="form-select form-select-sm mx-2 fw-bold text-success border-success" style="width: auto; font-size: 1.2rem; cursor: pointer;">
+                      <option value="today">今日</option>
+                      <option value="yesterday">昨日</option>
+                    </select> 氣送作業清單
+                  </h4>
+                </div>
                 <span class="badge bg-success fs-4">總筆數: <span id="pneumaticTotalCount">0</span></span>
               </div>
               <div class="card-body" id="pneumaticCardContainer" style="height: 600px; overflow-y: auto;">
