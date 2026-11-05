@@ -118,7 +118,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/config.js"></script>
-  <script>
+<script>
     let allMedsData = [];
     let allDocsData = [];
 
@@ -177,7 +177,7 @@
       if (uniqueTypes.includes(currentVal)) select.value = currentVal;
     }
 
-// 建立一個輔助函式：將 20260205 轉成 2026/02/05 格式顯示
+    // 將 20260205 轉成 2026/02/05 格式顯示
     function formatRxDate(rawStr) {
       if (!rawStr || rawStr.length !== 8) return rawStr;
       return `${rawStr.substring(0, 4)}/${rawStr.substring(4, 6)}/${rawStr.substring(6, 8)}`;
@@ -187,16 +187,15 @@
       const dispFilter = document.getElementById('filterMedDisp').value.trim().toLowerCase();
       const chartFilter = document.getElementById('filterMedChart').value.trim().toLowerCase();
       
-      // ★ 取得畫面上方篩選器的日期，並拔除連字號 (例如 "2026-05-19" 轉成 "20260519") 供處方日期比對
       const startVal = document.getElementById('startDate').value.replace(/-/g, '');
       const endVal = document.getElementById('endDate').value.replace(/-/g, '');
       
       const filtered = allMedsData.filter(r => {
-        const matchDisp = (r.dispNo || '').toLowerCase().includes(dispFilter);
-        const matchChart = (r.chartNo || '').toLowerCase().includes(chartFilter);
+        // ★ 強制將可能為數字的欄位加上 String()，防止 toLowerCase() 報錯
+        const matchDisp = String(r.dispNo || '').toLowerCase().includes(dispFilter);
+        const matchChart = String(r.chartNo || '').toLowerCase().includes(chartFilter);
         
-        // ★ 核心修改：讓前端篩選器改為比對處方日期 (RxDate)
-        const rawRx = (r.rxDate || '').replace(/[^0-9]/g, ''); // 確保只有純數字
+        const rawRx = String(r.rxDate || '').replace(/[^0-9]/g, '');
         const matchDate = (!startVal || rawRx >= startVal) && (!endVal || rawRx <= endVal);
         
         return matchDisp && matchChart && matchDate;
@@ -208,16 +207,14 @@
         return;
       }
 
-      // 群組邏輯：以「條碼/唯一鍵值」歸戶
+      // 歸戶邏輯
       const groupedData = {};
       filtered.forEach(r => {
         const uniqueKey = r.barcode || `${r.dispNo}_${r.rxDate}_${r.chartNo}`;
-
         if (!groupedData[uniqueKey]) {
           groupedData[uniqueKey] = { 
             dispNo: r.dispNo,
-            dateStr: r.dateStr, 
-            rxDate: r.rxDate, // 保留處方日期
+            rxDate: r.rxDate, 
             chartNo: r.chartNo, 
             records: [] 
           };
@@ -225,7 +222,7 @@
         groupedData[uniqueKey].records.push(r);
       });
 
-      // 排序邏輯：依領藥號由小至大
+      // 排序：由小至大
       const sortedKeys = Object.keys(groupedData).sort((a, b) => {
         const numA = parseInt(groupedData[a].dispNo, 10);
         const numB = parseInt(groupedData[b].dispNo, 10);
@@ -241,9 +238,11 @@
         const group = groupedData[key];
         const dispNo = group.dispNo; 
         const collapseId = `collapseMed_${index}`;
+        
+        // 將群組內的紀錄依時間排序(最新的在前面)
+        group.records.sort((a, b) => new Date(b.Created || 0) - new Date(a.Created || 0));
         const latestRecord = group.records[0];
 
-        // 顏色區分邏輯
         const latestType = latestRecord.TaskType || latestRecord.taskType || '未註記';
         let typeBadge = 'bg-secondary';
         if (latestType === '氣送') typeBadge = 'bg-info text-dark';
@@ -257,8 +256,8 @@
             <td>${group.chartNo}</td>
             <td><span class="badge ${typeBadge} fs-6">${latestType}</span></td>
             <td>
-              <span class="text-primary fw-bold">${latestRecord.staffName}</span> 
-              <span class="text-muted small ms-1">(${latestRecord.dateStr} ${latestRecord.time})</span>
+              <span class="text-primary fw-bold">${latestRecord.staffName} (${latestRecord.staffId})</span> 
+              <span class="text-muted small ms-1">${latestRecord.Created}</span>
             </td>
             <td><span class="badge bg-secondary rounded-pill">${group.records.length} 筆</span></td>
             <td>
@@ -279,8 +278,7 @@
                     else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; 
                     else if (subType !== '未註記') subTypeBadge = 'bg-warning text-dark';
                     
-                    // ★ 修正 3：展開明細的最後一欄也同步改為完整的 (LogDate + Time) 紀錄
-                    return `<tr><td>${formatRxDate(sub.rxDate)}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName}</td><td>${sub.dateStr} ${sub.time}</td></tr>`;
+                    return `<tr><td>${formatRxDate(sub.rxDate)}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName} (${sub.staffId})</td><td>${sub.Created}</td></tr>`;
                   }).join('')}
                 </tbody>
               </table>
@@ -296,13 +294,13 @@
       const chartFilter = document.getElementById('filterDocChart').value.trim().toLowerCase();
       const wardFilter = document.getElementById('filterDocWard').value.trim().toLowerCase();
       const dispFilter = document.getElementById('filterDocDisp').value.trim().toLowerCase();
-      
 
       const filtered = allDocsData.filter(r => {
-        const rawSearchText = `${r.SendNote || ''} ${r.ReceiveNote || ''} ${r.Quantity || ''} ${r.PickupNo || ''}`.toLowerCase();
-        const matchType = typeFilter === "" ? true : r.DocType === typeFilter; 
-        const matchChart = (r.ChartNo || '').toLowerCase().includes(chartFilter);
-        const matchWard = (r.Ward || '').toLowerCase().includes(wardFilter);
+        // ★ 強制將可能為數字的欄位加上 String()
+        const rawSearchText = `${String(r.SendNote || '')} ${String(r.ReceiveNote || '')} ${String(r.Quantity || '')} ${String(r.PickupNo || '')} ${String(r.SenderName || '')} ${String(r.SenderId || '')}`.toLowerCase();
+        const matchType = typeFilter === "" ? true : String(r.DocType || '') === typeFilter; 
+        const matchChart = String(r.ChartNo || '').toLowerCase().includes(chartFilter);
+        const matchWard = String(r.Ward || '').toLowerCase().includes(wardFilter);
         const matchDisp = rawSearchText.includes(dispFilter);
         return matchType && matchChart && matchWard && matchDisp;
       }).sort((a, b) => {
@@ -321,15 +319,10 @@
       }
 
       tbody.innerHTML = filtered.map(r => {
-        let statusText = '待藥師收單';
         let statusBadge = 'bg-warning text-dark';
-        if (r.IsClosed) {
-            statusText = (r.ReplyOption === '收下不歸還') ? '已結案' : '已領回';
-            statusBadge = 'bg-secondary';
-        } else if (r.IsReceived) {
-            statusText = r.ReplyOption;
-            statusBadge = (r.ReplyOption === '收下不歸還') ? 'bg-success' : 'bg-danger';
-        }
+        if (r.Status === '退件') statusBadge = 'bg-danger text-white';
+        else if (r.Status.includes('已結案') || r.Status.includes('已領回') || r.Status === '收下不歸還') statusBadge = 'bg-secondary text-white';
+        else if (r.Status !== '待藥師收單') statusBadge = 'bg-primary text-white';
 
         let detailsArr = [];
         if(r.Ward) detailsArr.push(`病房: <span class="text-primary fw-bold">${r.Ward}</span>`);
@@ -337,41 +330,47 @@
         if(r.Quantity) detailsArr.push(`數量: <span class="text-danger fw-bold">${r.Quantity}</span>`);
         if(r.PickupNo) detailsArr.push(`領藥號: <span class="text-success fw-bold">${r.PickupNo}</span>`);
         
-        let sendTimeStr = r.SendTime ? new Date(r.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-        let receiveTimeStr = r.ReceiveTime ? new Date(r.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-        let returnTimeStr = r.ReturnTime ? new Date(r.ReturnTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-        let dateOnly = r.SendTime ? r.SendTime.split('T')[0] : ''; 
+        // ★ 對齊卡片的時間與員編格式
+        const senderStr = r.SenderId ? `${r.SenderName} (${r.SenderId})` : r.SenderName;
+        const returnerStr = r.ReturnerId ? `${r.ReturnerName} (${r.ReturnerId})` : (r.ReturnerName || '');
+        
+        const formatTime = (t) => t ? String(t).substring(5, 16).replace('-', '/') : '';
+        const sendTimeStr = formatTime(r.SendTime);
+        const receiveTimeStr = formatTime(r.ReceiveTime);
+        const returnTimeStr = formatTime(r.ReturnTime);
+        
+        const dateOnly = r.SendTime ? String(r.SendTime).substring(0, 10) : ''; 
 
         return `
         <tr>
           <td>
             <div class="fw-bold text-secondary mb-1">${dateOnly}</div>
-            <span class="badge ${statusBadge} fs-6 d-inline-block mb-1">${statusText}</span>
+            <span class="badge ${statusBadge} fs-6 d-inline-block mb-1">${r.Status}</span>
           </td>
           
           <td class="fw-bold fs-5 text-dark">${r.DocType || ''}</td>
           
           <td>
-            <div class="mb-2 text-secondary">${detailsArr.join(' | ')}</div>
-            ${r.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${r.SendNote}</div>` : ''}
+            <div class="mb-2 text-secondary">${detailsArr.join(' <span class="mx-2 text-black-50 fw-light">|</span> ')}</div>
+            ${r.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>送件備註: ${r.SendNote}</div>` : ''}
             ${r.ReceiveNote ? `<div class="bg-blue-light p-1 rounded small text-primary border mb-1" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${r.ReceiveNote}</div>` : ''}
           </td>
           
           <td>
-            <ul class="list-unstyled mb-0 small">
+            <ul class="list-unstyled mb-0 small text-muted">
               <li class="mb-1">
-                <i class="bi bi-person-walking text-dark me-1"></i>送件: <strong>${r.SenderName || ''}</strong> 
-                <span class="text-muted ms-1">(${sendTimeStr})</span>
+                <i class="bi bi-person-walking text-dark me-1"></i>送件: <strong class="text-dark">${senderStr}</strong> 
+                <span class="ms-1 text-black-50">${sendTimeStr}</span>
               </li>
               ${r.IsReceived ? `
               <li class="mb-1">
-                <i class="bi bi-capsule text-primary me-1"></i>收單: <strong class="text-primary">${r.PharmaName || ''}</strong> 
-                <span class="text-muted ms-1">(${receiveTimeStr})</span>
+                <i class="bi bi-capsule text-primary me-1"></i>藥師: <strong class="text-primary">${r.PharmaName || ''}</strong> 
+                <span class="ms-1 text-black-50">${receiveTimeStr}</span>
               </li>` : ''}
               ${r.ReturnerName ? `
               <li>
-                <i class="bi bi-check2-circle text-success me-1"></i>領回: <strong class="text-success">${r.ReturnerName}</strong> 
-                <span class="text-muted ms-1">(${returnTimeStr})</span>
+                <i class="bi bi-check2-circle text-success me-1"></i>領回: <strong class="text-success">${returnerStr}</strong> 
+                <span class="ms-1 text-black-50">${returnTimeStr}</span>
               </li>` : ''}
             </ul>
           </td>
