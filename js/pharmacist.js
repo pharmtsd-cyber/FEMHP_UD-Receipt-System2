@@ -1,5 +1,5 @@
 // js/pharmacist.js
-let docTypeOptionsData = []; // 用來存文件類型
+let docTypeOptionsData = []; 
 let currentPharmaId = sessionStorage.getItem('pharmaId');
 let currentPharmaName = sessionStorage.getItem('pharmaName');
 let replyOptionsData = []; 
@@ -12,13 +12,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   document.getElementById('displayPharma').textContent = `${currentPharmaName} 藥師`;
   
-  // 呼叫 API 取得處置選項
   const optResult = await callGAS('getPharmaReplyOptions');
   if (optResult.success) {
     replyOptionsData = optResult.data.map(opt => opt.Title || opt['送件類型名稱']);
   }
 
-  // ★ 呼叫 API 取得文件類型 (供修改視窗的下拉選單使用)
   const typeResult = await callGAS('getConfigData');
   if (typeResult.success) {
     docTypeOptionsData = typeResult.data.map(opt => opt['送件類型名稱'] || opt.Title);
@@ -27,7 +25,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   refreshPharmaDocs();
 });
 
-// === 動態生成文件類型下拉選單 ===
 function populatePharmaDocTypes() {
   const select = document.getElementById('filterPharmaDocType');
   if (!select) return;
@@ -42,7 +39,6 @@ function populatePharmaDocTypes() {
   if (uniqueTypes.includes(currentVal)) select.value = currentVal;
 }
 
-// ★ 加入：切換子頁籤時自動重整資料 (寫在檔案外層)
 document.addEventListener('DOMContentLoaded', () => {
   const pharmaTabs = document.querySelectorAll('button[data-bs-toggle="tab"], button[data-bs-toggle="pill"]');
   pharmaTabs.forEach(tab => {
@@ -54,10 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// === 藥師端：抓取資料 ===
 async function refreshPharmaDocs() {
-  const pendingBox = document.getElementById('pharmaUnresolved'); // 更新為新頁籤的 ID
-  const completedBox = document.getElementById('pharmaResolved'); // 更新為新頁籤的 ID
+  const pendingBox = document.getElementById('pharmaUnresolved'); 
+  const completedBox = document.getElementById('pharmaResolved'); 
 
   if(pendingBox) pendingBox.innerHTML = '<div class="text-center py-3">載入中...</div>';
   if(completedBox) completedBox.innerHTML = '<div class="text-center py-3">載入中...</div>';
@@ -70,23 +65,19 @@ async function refreshPharmaDocs() {
   renderPharmaDocs();          
 }
 
-// === 藥師端：升級版清單渲染 (負責過濾與畫卡片) ===
 function renderPharmaDocs() {
   const pendingBox = document.getElementById('pharmaUnresolved');
   const completedBox = document.getElementById('pharmaResolved');
   const countBadge = document.getElementById('pendingDocCount');
   if (!pendingBox || !completedBox) return;
 
-  // 1. 取得篩選條件
   const typeFilter = document.getElementById('filterPharmaDocType') ? document.getElementById('filterPharmaDocType').value : '';
   const chartFilter = document.getElementById('filterPharmaChart') ? document.getElementById('filterPharmaChart').value.trim().toLowerCase() : '';
   const wardFilter = document.getElementById('filterPharmaWard') ? document.getElementById('filterPharmaWard').value.trim().toLowerCase() : '';
   const dispFilter = document.getElementById('filterPharmaDisp') ? document.getElementById('filterPharmaDisp').value.trim().toLowerCase() : '';
 
-  // ★ 改用 Timestamp (毫秒) 進行精準比較，嚴格抓取前 48 小時內的單據
   const limitTimestamp = new Date().getTime() - (48 * 60 * 60 * 1000); 
 
-  // 2. 先對全域資料進行初步過濾
   const filteredData = allPharmaData.filter(item => {
     const rawSearchText = `${item.SendNote || ''} ${item.ReceiveNote || ''} ${item.Quantity || ''} ${item.PickupNo || ''} ${item.SenderName || ''}`.toLowerCase();
     const matchType = typeFilter === "" ? true : item.DocType === typeFilter;
@@ -94,25 +85,21 @@ function renderPharmaDocs() {
     const matchWard = (item.Ward || '').toLowerCase().includes(wardFilter);
     const matchDisp = rawSearchText.includes(dispFilter);
     
-    // ★ 檢查送件時間是否在 48 小時內 (轉為 Timestamp)
     const itemTime = new Date(item.SendTime || 0).getTime();
     const matchTime = itemTime >= limitTimestamp;
 
     return matchType && matchChart && matchWard && matchDisp && matchTime;
   });
 
-  // 3. 取得今天的 年、月、日
   const today = new Date();
   const todayYear = today.getFullYear();
   const todayMonth = today.getMonth();
   const todayDate = today.getDate();
 
-  // ★ 4. 這裡就是遺失的 pendingData：分流「待處理」
   const pendingData = filteredData
     .filter(item => !item.IsReceived && !item.IsClosed)
     .sort((a, b) => new Date(b.SendTime) - new Date(a.SendTime));
 
-  // ★ 5. 這裡就是遺失的 completedData：分流「今日已處理」
   const completedData = filteredData
     .filter(item => {
       if (!item.IsReceived || !item.ReceiveTime) return false;
@@ -125,7 +112,6 @@ function renderPharmaDocs() {
 
   if(countBadge) countBadge.textContent = pendingData.length;
 
-  // 核心渲染邏輯：統一處理卡片外觀
   const renderCard = (item, isPending) => {
     let detailsArr = [];
     if (item.Ward) detailsArr.push(`病房: <span class="fw-bold text-dark">${item.Ward}</span>`);
@@ -169,7 +155,6 @@ function renderPharmaDocs() {
   completedBox.innerHTML = completedData.length ? completedData.map(item => renderCard(item, false)).join('') : '<div class="text-muted text-center py-4">今日無已處理的紀錄</div>';
 }
 
-// === 藥師修改單據詳細資料 ===
 async function editDocInfo(signId, currentOption, currentNote, currentType, currentWard, currentChartNo, currentQty, currentPickup, currentSender, currentSendNote) {
   const safeNote = (!currentNote || currentNote === 'undefined' || currentNote === 'null') ? '' : currentNote;
   const safeSendNote = (!currentSendNote || currentSendNote === 'undefined' || currentSendNote === 'null') ? '' : currentSendNote;
@@ -235,7 +220,6 @@ async function editDocInfo(signId, currentOption, currentNote, currentType, curr
   }
 }
 
-// === 確認收單 ===
 async function receiveDoc(signId) {
   let optionsHtml = replyOptionsData.map(opt => `<option value="${opt}">${opt}</option>`).join('');
   const { value: formValues, isConfirmed } = await Swal.fire({
@@ -265,7 +249,6 @@ async function receiveDoc(signId) {
     const res = await callGAS('receiveDocTransfer', payload);
     if (res.success) {
       Toast.fire({ icon: 'success', title: '收單成功' });
-      // 延遲 1.5 秒再向伺服器要資料，確保狀態已更新
       setTimeout(() => {
         refreshPharmaDocs();
       }, 1500);
@@ -326,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const pEmptyState = document.getElementById('pneumaticEmptyState');
   
   const pScannedItems = new Set();
-  // ★ 新增：LocalStorage 記憶功能 (藥師氣送端)
+  
   const localKeyPharma = `medLog_pharma_${currentPharmaId}`;
   let localDataPharma = JSON.parse(localStorage.getItem(localKeyPharma) || '{"date":"","items":[]}');
 
@@ -335,7 +318,11 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem(localKeyPharma, JSON.stringify(localDataPharma));
   } else {
     localDataPharma.items.forEach(item => {
-      pScannedItems.add(`${item.payload.dispenseNo}-${item.payload.rxDate}`);
+      if (item.isCancelDispense) {
+          pScannedItems.delete(`${item.payload.dispenseNo}-${item.payload.rxDate}`);
+      } else {
+          pScannedItems.add(`${item.payload.dispenseNo}-${item.payload.rxDate}`);
+      }
       addPneumaticCardToUI(item.payload, item.cardId, true, item.isDuplicateLabel, item.isCancelDispense);
     });
     if(pTotalCountSpan) pTotalCountSpan.textContent = pScannedItems.size;
@@ -352,7 +339,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeTab = document.querySelector('.nav-link.active');
     if (activeTab && activeTab.id === 'pneumatic-tab') {
       const tagName = e.target.tagName;
-      // ★ 對齊傳送端，排除 SELECT 與 OPTION，解決下拉無法點擊的問題
       if (tagName !== 'BUTTON' && !e.target.classList.contains('nav-link') && tagName !== 'INPUT' && tagName !== 'SELECT' && tagName !== 'OPTION') {
          if(pBarcodeInput) pBarcodeInput.focus();
       }
@@ -366,7 +352,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const barcodeValue = pBarcodeInput.value.trim();
         if (!barcodeValue) return;
 
-        // ★ 核心功能：如果目前在「昨日」模式，刷入條碼瞬間強制切回「今日」
         const dateSelect = document.getElementById('pneumaticDateSelect');
         if (dateSelect && dateSelect.value === 'yesterday') {
           dateSelect.value = 'today';
@@ -391,7 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const itemKey = `${dispenseNo}-${rxDate}`;
         const isNewItem = !pScannedItems.has(itemKey);
         
-        let finalTaskType = '氣送'; // 預設狀態
+        let finalTaskType = '氣送'; 
         let isDuplicateLabel = false;
         let isCancelDispense = false;
 
@@ -415,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
             finalTaskType = '取消領藥';
             isDuplicateLabel = true;
             isCancelDispense = true;
-            pScannedItems.delete(itemKey); // ★ 核心修改：如果是取消領藥，把筆數扣除 (-1)
+            pScannedItems.delete(itemKey); // 從 Set 中移除
           } else {
             pBarcodeInput.value = ''; pBarcodeInput.focus(); return;
           }
@@ -432,7 +417,6 @@ document.addEventListener('DOMContentLoaded', () => {
           rxDate: rxDate
         };
 
-        // ★ 記錄刷入的當下時間
         const now = new Date();
         payload.timeString = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
 
@@ -440,12 +424,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (isNewItem) {
           addPneumaticCardToUI(payload, cardId, true); 
-          pTotalCountSpan.textContent = pScannedItems.size;
         } else {
           addPneumaticCardToUI(payload, cardId, true, isDuplicateLabel, isCancelDispense); 
         }
+        
+        // ★ 核心修復：不論是新增還是取消，統一在最後一行將「計算後的剩餘筆數」更新至畫面
+        if(pTotalCountSpan) pTotalCountSpan.textContent = pScannedItems.size;
 
-        // ★ 將氣送紀錄推入 LocalStorage 儲存
         localDataPharma.items.push({
           payload: payload,
           cardId: cardId,
@@ -475,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false, isCancel = false) {
+  function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false, isCancel = false) {
     if (pEmptyState) pEmptyState.style.display = 'none';
     const card = document.createElement('div');
     card.id = cardId;
@@ -498,7 +483,8 @@ function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false, isCa
           <span class="badge ${isCancel ? 'bg-danger' : 'bg-primary'} me-2 fs-6">
             <i class="bi ${isCancel ? 'bi-x-circle' : 'bi-rocket-takeoff'} me-1"></i>${data.type}
           </span>
-          由 <span class="fw-bold text-primary">${data.staffName} 藥師</span> 處理
+          <!-- ★ 卡片底部增加顯示 staffId -->
+          由 <span class="fw-bold text-primary">${data.staffName} (${data.staffId}) 藥師</span> 處理
         </div>
       </div>
     `;
@@ -514,9 +500,8 @@ function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false, isCa
     
     if (mode === 'today') {
       input.placeholder = "請刷入藥袋條碼..."; 
-      input.focus(); // 強制對焦
+      input.focus(); 
       
-      // ★ 捨棄 Reload，對齊傳送端直接從 LocalStorage 快速還原畫面
       container.innerHTML = '<div class="text-muted text-center mt-5 fs-4" id="pneumaticEmptyState" style="display:none;">目前尚無紀錄</div>';
       pScannedItems.clear();
       
@@ -529,9 +514,8 @@ function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false, isCa
       if (localDataPharma.items.length === 0) document.getElementById('pneumaticEmptyState').style.display = 'block';
 
     } else {
-      // 查詢昨日歷史
       input.placeholder = "昨日歷史 (直接刷條碼會切回今日)...";
-      input.focus(); // ★ 保持游標對焦
+      input.focus(); 
       container.innerHTML = '<div class="text-center mt-5"><div class="spinner-border text-success"></div><div class="mt-2 text-muted fs-5">讀取昨日資料中...</div></div>';
       
       const y = new Date(); y.setDate(y.getDate() - 1);
@@ -545,7 +529,8 @@ function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false, isCa
         const latestState = {}; 
         myItems.forEach(r => {
           latestState[`${r.dispNo}-${r.rxDate}`] = r.TaskType;
-          const mockData = { dispenseNo: r.dispNo, rxDate: r.rxDate, chartNo: r.chartNo, type: r.TaskType, staffName: r.staffName, timeString: r.time };
+          // ★ 加入 staffId 給昨日歷史的 mockData
+          const mockData = { dispenseNo: r.dispNo, rxDate: r.rxDate, chartNo: r.chartNo, type: r.TaskType, staffName: r.staffName, staffId: r.staffId, timeString: r.time };
           addPneumaticCardToUI(mockData, 'y_'+Date.now()+Math.random(), true, false, r.TaskType === '取消領藥');
         });
         
