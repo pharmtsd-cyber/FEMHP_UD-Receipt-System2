@@ -7,6 +7,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="theme.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-light">
 
@@ -52,12 +53,58 @@
         <div class="tab-content" id="recordTabContent">
           
           <div class="tab-pane fade" id="dashboard" role="tabpanel">
-            <div class="card shadow-sm border-0 border-top border-4 border-warning mt-2">
-              <div class="card-body p-0" style="height: 850px;"> <iframe title="住院藥局收發統計" width="100%" height="100%" 
-                  src="https://app.powerbi.com/reportEmbed?reportId=您的ID..." 
-                  frameborder="0" allowFullScreen="true">
-                </iframe>
+            <div class="row g-3 mt-2">
+              <!-- KPI 數字區 -->
+              <div class="col-md-4">
+                <div class="card bg-success text-white text-center shadow-sm border-0">
+                  <div class="card-body py-4">
+                    <h5 class="card-title fw-bold mb-3"><i class="bi bi-box-seam me-2"></i>帶藥 / 氣送總筆數</h5>
+                    <h1 class="display-4 fw-bold" id="kpi-meds">0</h1>
+                  </div>
                 </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card bg-primary text-white text-center shadow-sm border-0">
+                  <div class="card-body py-4">
+                    <h5 class="card-title fw-bold mb-3"><i class="bi bi-file-earmark-text me-2"></i>文件收發總筆數</h5>
+                    <h1 class="display-4 fw-bold" id="kpi-docs">0</h1>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card bg-danger text-white text-center shadow-sm border-0">
+                  <div class="card-body py-4">
+                    <h5 class="card-title fw-bold mb-3"><i class="bi bi-exclamation-triangle me-2"></i>未發藥交接總筆數</h5>
+                    <h1 class="display-4 fw-bold" id="kpi-ud">0</h1>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 圖表區 -->
+              <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100">
+                  <div class="card-header bg-white fw-bold text-success border-bottom border-success border-2">帶藥 / 氣送作業分佈</div>
+                  <div class="card-body" style="height: 300px;">
+                    <canvas id="medChart"></canvas>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100">
+                  <div class="card-header bg-white fw-bold text-primary border-bottom border-primary border-2">文件類型統計排行</div>
+                  <div class="card-body" style="height: 300px;">
+                    <canvas id="docChart"></canvas>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-12 mb-4">
+                <div class="card shadow-sm border-0">
+                  <div class="card-header bg-white fw-bold text-danger border-bottom border-danger border-2">未發藥問題分類統計</div>
+                  <div class="card-body" style="height: 300px;">
+                    <canvas id="udChart"></canvas>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -200,6 +247,9 @@
     let allMedsData = [];
     let allDocsData = [];
     let allUdData = []; // ★ 新增這行
+    let medChartInstance = null;
+    let docChartInstance = null;
+    let udChartInstance = null;
 
     document.addEventListener('DOMContentLoaded', () => {
       const now = new Date();
@@ -325,6 +375,7 @@
       renderMeds();
       renderDocs();
       renderUndispensed(); // ★ 渲染新表格
+      renderDashboard(); // ★ 渲染統計圖表
     }
 
     function populateDocTypes() {
@@ -570,6 +621,85 @@
         `;
       }).join('');
     }
-  </script>
+
+    function renderDashboard() {
+      // 1. 更新 KPI 數字
+      document.getElementById('kpi-meds').textContent = allMedsData.length;
+      document.getElementById('kpi-docs').textContent = allDocsData.length;
+      document.getElementById('kpi-ud').textContent = allUdData.length;
+
+      // 2. 準備出院帶藥/氣送資料 (環圈圖)
+      const medTypes = {};
+      allMedsData.forEach(d => {
+        const t = d.TaskType || d.taskType || '未註記';
+        medTypes[t] = (medTypes[t] || 0) + 1;
+      });
+
+      if (medChartInstance) medChartInstance.destroy();
+      medChartInstance = new Chart(document.getElementById('medChart'), {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(medTypes),
+          datasets: [{
+            data: Object.values(medTypes),
+            backgroundColor: ['#198754', '#0dcaf0', '#dc3545', '#ffc107', '#6c757d']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+      });
+
+      // 3. 準備文件收發資料 (長條圖)
+      const docTypes = {};
+      allDocsData.forEach(d => {
+        const t = d.DocType || '未註記';
+        docTypes[t] = (docTypes[t] || 0) + 1;
+      });
+      
+      if (docChartInstance) docChartInstance.destroy();
+      docChartInstance = new Chart(document.getElementById('docChart'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(docTypes),
+          datasets: [{
+            label: '文件數量',
+            data: Object.values(docTypes),
+            backgroundColor: '#0d6efd',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+
+      // 4. 準備未發藥交接資料 (長條圖)
+      const udTypes = {};
+      allUdData.forEach(d => {
+        const t = d.problemCategory || '未註記';
+        udTypes[t] = (udTypes[t] || 0) + 1;
+      });
+
+      if (udChartInstance) udChartInstance.destroy();
+      udChartInstance = new Chart(document.getElementById('udChart'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(udTypes),
+          datasets: [{
+            label: '問題數量',
+            data: Object.values(udTypes),
+            backgroundColor: '#dc3545',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+    }
+      </script>
 </body>
 </html>
