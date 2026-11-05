@@ -90,16 +90,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   if(barcodeInput) {
     barcodeInput.focus();
     document.body.addEventListener('click', (e) => {
-      if (e.target.tagName !== 'BUTTON' && !e.target.classList.contains('nav-link') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
-         barcodeInput.focus();
+      const activeTab = document.querySelector('.nav-link.active');
+      if (activeTab && activeTab.id === 'discharge-tab') {
+        const tagName = e.target.tagName;
+        // ★ 將 SELECT 與 OPTION 排除，讓下拉選單可以正常點擊
+        if (tagName !== 'BUTTON' && !e.target.classList.contains('nav-link') && tagName !== 'INPUT' && tagName !== 'SELECT' && tagName !== 'OPTION') {
+           if(barcodeInput) barcodeInput.focus();
+        }
       }
     });
 
-barcodeInput.addEventListener('keypress', async (e) => {
+    barcodeInput.addEventListener('keypress', async (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const barcodeValue = barcodeInput.value.trim();
         if (!barcodeValue) return;
+
+        // ★ 核心功能：如果目前在「昨日」模式，刷入條碼瞬間強制切回「今日」
+        const dateSelect = document.getElementById('medDateSelect');
+        if (dateSelect && dateSelect.value === 'yesterday') {
+          dateSelect.value = 'today';
+          dateSelect.dispatchEvent(new Event('change')); // 觸發重整畫面的事件
+        }
 
         const parts = barcodeValue.split(';');
         if (parts.length < 5 || !parts[2] || !parts[2].startsWith('8')) {
@@ -595,9 +607,8 @@ document.getElementById('medDateSelect')?.addEventListener('change', async (e) =
   const input = document.getElementById('barcodeInput');
   
   if (mode === 'today') {
-    input.disabled = false;
     input.placeholder = "請刷入藥袋條碼...";
-    input.focus();
+    input.focus(); // 強制對焦
     
     // 從 LocalStorage 還原今日畫面
     container.innerHTML = '<div class="text-muted text-center mt-5 fs-4" id="emptyState" style="display:none;">目前尚無紀錄</div>';
@@ -615,8 +626,8 @@ document.getElementById('medDateSelect')?.addEventListener('change', async (e) =
 
   } else {
     // 查詢昨日歷史
-    input.disabled = true;
-    input.placeholder = "昨日模式僅供查詢歷史...";
+    input.placeholder = "昨日歷史 (直接刷條碼會切回今日)...";
+    input.focus(); // ★ 保持游標對焦，讓使用者隨時可刷
     container.innerHTML = '<div class="text-center mt-5"><div class="spinner-border text-success"></div><div class="mt-2 text-muted fs-5">讀取昨日資料中...</div></div>';
     
     const y = new Date(); y.setDate(y.getDate() - 1);
@@ -627,7 +638,7 @@ document.getElementById('medDateSelect')?.addEventListener('change', async (e) =
       container.innerHTML = '';
       const myItems = res.data.filter(r => r.staffId == sessionStorage.getItem('transId')).reverse();
       
-      const latestState = {}; // 用來算淨筆數
+      const latestState = {}; 
       myItems.forEach(r => {
         latestState[`${r.dispNo}-${r.rxDate}`] = r.TaskType;
         const mockData = { dispenseNo: r.dispNo, rxDate: r.rxDate, chartNo: r.chartNo, type: r.TaskType, staffName: r.staffName, timeString: r.time };
