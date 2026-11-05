@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>傳送主管管理專區</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-light d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+
+  <div class="container">
+    
+    <!-- ================= 區塊 1：主管登入畫面 ================= -->
+    <div id="loginSection" class="row justify-content-center">
+      <div class="col-md-5">
+        <div class="card shadow border-primary">
+          <div class="card-body p-5">
+            <div class="text-center mb-4">
+              <i class="bi bi-shield-lock display-1 text-primary mb-3 d-block"></i>
+              <h2 class="text-primary fw-bold" style="font-size: 2.2rem;">傳送主管管理專區</h2>
+              <p class="text-muted fs-5">請輸入主管專用編號</p>
+            </div>
+            <form id="adminLoginForm">
+              <div class="mb-3">
+                <input type="text" class="form-control text-center fw-bold" style="font-size: 1.5rem; padding: 10px;" id="adminLoginId" required autofocus placeholder="主管員編">
+              </div>
+              <div class="mb-4">
+                <input type="password" class="form-control text-center fw-bold" style="font-size: 1.5rem; padding: 10px;" id="adminLoginPwd" required placeholder="請輸入共同密碼">
+              </div>
+              <button type="submit" class="btn btn-primary w-100 fw-bold" style="font-size: 1.5rem; padding: 12px;">登 入</button>
+            </form>
+            <div class="text-center mt-4">
+              <a href="index.html" class="text-decoration-none text-secondary fs-5">← 返回首頁大廳</a>
+            </div>
+          </div> 
+        </div> 
+      </div>
+    </div>
+
+    <!-- ================= 區塊 2：員工管理後台 (登入後才會顯示) ================= -->
+    <div id="dashboardSection" style="display: none;">
+      <nav class="navbar navbar-dark bg-primary mb-4 shadow-sm px-4 border-radius" style="border-radius: 12px;">
+        <div class="d-flex align-items-center">
+          <span class="navbar-brand mb-0 h1 fs-3"><i class="bi bi-people-fill me-2"></i>傳送人員名單管理</span>
+          <span class="text-white fs-5 ms-4">登入主管：<strong id="displayAdminName"></strong></span>
+        </div>
+        <button class="btn btn-warning fw-bold me-3 shadow-sm" onclick="changeSharedPassword()">
+            <i class="bi bi-key-fill me-1"></i>變更共同密碼
+          </button>
+        <button class="btn btn-outline-light fw-bold" onclick="logoutAdmin()">安全登出</button>
+      </nav>
+
+      <div class="card shadow">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+          <h4 class="m-0 text-primary fw-bold">人員清單總覽</h4>
+          <button class="btn btn-success fw-bold" onclick="openStaffModal('add')">
+            <i class="bi bi-person-plus-fill me-1"></i>新增人員
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 fs-5">
+              <thead class="table-light text-secondary">
+                <tr>
+                  <th class="ps-4">員工編號</th>
+                  <th>姓名</th>
+                  <th>系統權限</th>
+                  <th class="text-end pe-4">操作設定</th>
+                </tr>
+              </thead>
+              <tbody id="staffTableBody">
+                <!-- 名單動態生成區 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/config.js"></script>
+  <script>
+// === 登入邏輯 ===
+    document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('adminLoginId').value.trim().toUpperCase();
+      const pwd = document.getElementById('adminLoginPwd').value.trim(); // 抓取密碼
+      if(!id || !pwd) return;
+
+      Toast.fire({ icon: 'info', title: '驗證權限中...', timer: 5000 });
+      // ★ 把員編跟密碼一起包裝送給 adminLogin
+      const result = await callGAS('adminLogin', { staffId: id, password: pwd });
+
+      if (result.success) {
+        Toast.fire({ icon: 'success', title: `歡迎主管 ${result.name}` });
+        document.getElementById('displayAdminName').textContent = result.name;
+        
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('dashboardSection').style.display = 'block';
+        
+        loadStaffList(); 
+      } else {
+        Swal.fire('拒絕存取', result.message || '員編或密碼錯誤', 'error');
+        document.getElementById('adminLoginPwd').value = ''; // 清空密碼框
+      }
+    });
+
+// === 主管自行變更共同密碼 ===
+    async function changeSharedPassword() {
+      const adminName = document.getElementById('displayAdminName').textContent; // ★ 抓取目前登入的主管名字
+
+      const { value: newPwd } = await Swal.fire({
+        title: '變更共同密碼',
+        input: 'text',
+        inputPlaceholder: '請輸入新的共同密碼',
+        showCancelButton: true,
+        confirmButtonText: '確認變更',
+        cancelButtonText: '取消',
+        confirmButtonColor: '#C19A6B'
+      });
+
+      if (newPwd && newPwd.trim() !== '') {
+        Toast.fire({ icon: 'info', title: '背景更新中...', timer: 3000 });
+        
+        // ★ 直接傳送參數，不包雙層 payload
+        const res = await callGAS('updateSharedPassword', { 
+          newPassword: newPwd.trim(),
+          adminName: adminName 
+        });
+        
+        if (res.success) {
+          Toast.fire({ icon: 'success', title: '共同密碼已更新！' });
+        } else {
+          Swal.fire('失敗', res.message || '更新失敗', 'error');
+        }
+      }
+    }
+    
+    // === 載入名單 ===
+    async function loadStaffList() {
+      const tbody = document.getElementById('staffTableBody');
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">資料讀取中...</td></tr>';
+      
+      const result = await callGAS('getStaffList', {});
+      if (result.success) {
+        if (result.data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">目前尚無人員資料</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = result.data.map(staff => `
+          <tr>
+            <td class="ps-4 fw-bold font-monospace text-primary">${staff.id}</td>
+            <td class="fw-bold">${staff.name}</td>
+            <td>
+              <span class="badge ${staff.role === '管理者' ? 'bg-danger' : 'bg-secondary'} fs-6">${staff.role}</span>
+            </td>
+            <td class="text-end pe-4">
+              <button class="btn btn-outline-primary btn-sm fw-bold me-2" onclick="openStaffModal('edit', '${staff.id}', '${staff.name}', '${staff.role}')">
+                <i class="bi bi-pencil-square"></i> 修改
+              </button>
+              <button class="btn btn-outline-danger btn-sm fw-bold" onclick="deleteStaff('${staff.id}', '${staff.name}')">
+                <i class="bi bi-trash3"></i> 刪除
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } else {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-danger">讀取失敗</td></tr>';
+      }
+    }
+
+    // === 開啟新增/修改表單 (使用 SweetAlert) ===
+    async function openStaffModal(mode, id = '', name = '', role = '一般人員') {
+      const isAdd = mode === 'add';
+      const { value: formValues } = await Swal.fire({
+        title: isAdd ? '新增傳送人員' : '修改人員資料',
+        html: `
+          <div class="text-start mb-3">
+            <label class="form-label fw-bold">員工編號 <span class="text-danger">*</span></label>
+            <input id="swal-id" class="form-control form-control-lg" value="${id}" placeholder="請輸入員編">
+          </div>
+          <div class="text-start mb-3">
+            <label class="form-label fw-bold">姓名 <span class="text-danger">*</span></label>
+            <input id="swal-name" class="form-control form-control-lg" value="${name}" placeholder="請輸入姓名">
+          </div>
+          <div class="text-start mb-2">
+            <label class="form-label fw-bold">系統權限</label>
+            <select id="swal-role" class="form-select form-select-lg">
+              <option value="一般人員" ${role === '一般人員' ? 'selected' : ''}>一般人員</option>
+              <option value="管理者" ${role === '管理者' ? 'selected' : ''}>管理者 (可登入此後台)</option>
+            </select>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: '確認儲存',
+        confirmButtonColor: '#2C5343',
+        preConfirm: () => {
+          const newId = document.getElementById('swal-id').value.trim();
+          const newName = document.getElementById('swal-name').value.trim();
+          const newRole = document.getElementById('swal-role').value;
+          if (!newId || !newName) {
+            Swal.showValidationMessage('員工編號與姓名為必填！');
+            return false;
+          }
+          return { id: newId, name: newName, role: newRole };
+        }
+      });
+
+      if (formValues) {
+        Toast.fire({ icon: 'info', title: '背景儲存中...', timer: 5000 });
+        const payload = { 
+          type: mode, 
+          oldId: id, // 傳舊的ID給後端找資料用
+          id: formValues.id, 
+          name: formValues.name, 
+          role: formValues.role 
+        };
+        
+        const res = await callGAS('modifyStaff', payload);
+        if (res.success) {
+          Toast.fire({ icon: 'success', title: res.message });
+          loadStaffList(); // 重新整理表格
+        } else {
+          Swal.fire('失敗', res.message, 'error');
+        }
+      }
+    }
+
+    // === 刪除人員 ===
+    async function deleteStaff(id, name) {
+      const confirm = await Swal.fire({
+        title: '確定要刪除嗎？',
+        html: `即將刪除：<br><strong class="text-danger fs-4">${name} (${id})</strong><br>此操作無法復原。`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#9B3C38',
+        confirmButtonText: '確認刪除'
+      });
+
+      if (confirm.isConfirmed) {
+        Toast.fire({ icon: 'info', title: '背景刪除中...', timer: 5000 });
+        const res = await callGAS('modifyStaff', { type: 'delete', id: id });
+        if (res.success) {
+          Toast.fire({ icon: 'success', title: '已刪除' });
+          loadStaffList();
+        } else {
+          Swal.fire('失敗', res.message, 'error');
+        }
+      }
+    }
+
+function logoutAdmin() {
+      // 1. 清空員編與密碼輸入框的值
+      document.getElementById('adminLoginId').value = '';
+      document.getElementById('adminLoginPwd').value = ''; 
+      
+      // 2. 切換畫面回登入區塊
+      document.getElementById('dashboardSection').style.display = 'none';
+      document.getElementById('loginSection').style.display = 'flex';
+      
+      // 3. 提示訊息並將游標聚焦回員編框，方便下一次登入
+      Toast.fire({ icon: 'success', title: '已安全登出' });
+      document.getElementById('adminLoginId').focus();
+    }
+  </script>
+</body>
+</html>

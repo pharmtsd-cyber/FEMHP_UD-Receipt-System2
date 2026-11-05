@@ -1,0 +1,42 @@
+/* =========================================
+   住院藥局收發系統 - 海軍綠學術風主題 (Navy Green Theme) 
+   ========================================= */
+
+:root {
+  /* 將原本的系統藍、系統綠，統一覆寫為具層次感的海軍綠 */
+  --bs-primary: #2C5343;     /* 深海軍綠 (主色) */
+  --bs-primary-rgb: 44, 83, 67;
+  --bs-success: #3A6D58;     /* 淺海軍綠 (次色/操作色) */
+  --bs-success-rgb: 58, 109, 88;
+  --bs-warning: #C19A6B;     /* 學術復古金 (警告/等待色) */
+  --bs-warning-rgb: 193, 154, 107;
+  --bs-danger: #9B3C38;      /* 沉穩的磚紅色 (退件/撤銷) */
+  --bs-body-bg: #F4F6F5;     /* 帶有一點點灰綠的護眼紙張底色 */
+}
+
+/* 全局學術風字體與質感微調 */
+body { letter-spacing: 0.5px; color: #1E3A2F; }
+h1, h2, h3, h4, h5, .navbar-brand { font-weight: 700 !important; }
+
+/* 卡片與按鈕的精緻化 (拔除生硬的邊框，改用柔和陰影) */
+.card { border: none !important; box-shadow: 0 4px 15px rgba(44, 83, 67, 0.08) !important; border-radius: 12px; }
+.card-header { border-radius: 12px 12px 0 0 !important; border-bottom: none; }
+.btn { border-radius: 8px; font-weight: 600; transition: all 0.2s; }
+.btn:active { transform: scale(0.98); }
+
+/* 頁籤專屬質感 */
+.nav-tabs .nav-link { border: none; color: #6c757d; font-weight: 600; border-radius: 8px 8px 0 0; padding: 12px 20px; }
+.nav-tabs .nav-link.active { background-color: #E8EFEB !important; color: #2C5343 !important; border-bottom: 3px solid #2C5343 !important; }
+
+/* 傳送端/氣送端專用：強調正在輸入的條碼框 */
+#barcodeInput:focus, #pneumaticBarcodeInput:focus { 
+  border-color: #3A6D58 !important; 
+  box-shadow: 0 0 0 0.5rem rgba(58, 109, 88, 0.25) !important; 
+  background-color: #ffffff; 
+}
+/* 傳送端/氣送端專用：放大的卡片文字 */
+.huge-text { font-size: 2.2rem !important; }
+
+/* 查詢大廳專用：讓折疊內容的底色有些微區分 */
+.filter-box { background-color: #ffffff; border-radius: 8px; padding: 15px; margin-bottom: 20px; border: 1px solid #dee2e6; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+.sub-table-row { background-color: #ffffff; }

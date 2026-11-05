@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>住院藥局收發紀錄查詢平台</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-light">
+
+  <nav class="navbar navbar-dark bg-secondary mb-4 shadow-sm px-3">
+    <div class="container-fluid justify-content-center">
+      <span class="navbar-brand mb-0 h1 fs-3"><i class="bi bi-search me-2"></i>住院藥局收發紀錄查詢平台</span>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4">
+    <div class="card shadow border-0">
+      <div class="card-body p-4">
+        
+        <div class="row justify-content-center mb-4 border-bottom pb-4 align-items-end">
+          <div class="col-md-3">
+            <label class="fw-bold fs-5 mb-2 text-primary">開始日期：</label>
+            <input type="date" id="startDate" class="form-control form-control-lg text-center fw-bold">
+          </div>
+          <div class="col-md-3">
+            <label class="fw-bold fs-5 mb-2 text-primary">結束日期：</label>
+            <input type="date" id="endDate" class="form-control form-control-lg text-center fw-bold">
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-primary btn-lg w-100 fw-bold" onclick="loadRecords()"><i class="bi bi-cloud-download me-2"></i>載入資料</button>
+          </div>
+        </div>
+
+        <ul class="nav nav-tabs nav-fill mb-4 fs-4" id="recordTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active text-success" id="med-tab" data-bs-toggle="tab" data-bs-target="#med" type="button">📦 出院帶藥 / 氣送</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link text-primary" id="doc-tab" data-bs-toggle="tab" data-bs-target="#doc" type="button">📄 文件收發紀錄</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link text-warning fw-bold" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard" type="button">📊 統計面板</button>
+          </li>
+        </ul>
+
+        <div class="tab-content" id="recordTabContent">
+          
+          <div class="tab-pane fade" id="dashboard" role="tabpanel">
+            <div class="card shadow-sm border-0 border-top border-4 border-warning mt-2">
+              <div class="card-body p-0" style="height: 850px;"> <iframe title="住院藥局收發統計" width="100%" height="100%" 
+                  src="https://app.powerbi.com/reportEmbed?reportId=您的ID..." 
+                  frameborder="0" allowFullScreen="true">
+                </iframe>
+                </div>
+            </div>
+          </div>
+          
+          <div class="tab-pane fade show active" id="med" role="tabpanel">
+            <div class="filter-box row g-3">
+              <div class="col-md-4">
+                <input type="text" id="filterMedDisp" class="form-control form-control-lg border-success" placeholder="🔍 搜尋 領藥號 (可輸入片段)...">
+              </div>
+              <div class="col-md-4">
+                <input type="text" id="filterMedChart" class="form-control form-control-lg border-success" placeholder="🔍 搜尋 病歷號...">
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle fs-5 border">
+                <thead class="table-success">
+                  <tr><th>處方日期</th><th>領藥號</th><th>病歷號</th><th>傳送方式</th><th>最新進度 (人員與時間)</th><th>總筆數</th><th>操作</th></tr>
+                </thead>
+                <tbody id="medRecordsBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="doc" role="tabpanel">
+            <div class="filter-box row g-3">
+              <div class="col-md-3">
+                <select id="filterDocType" class="form-select form-select-lg border-primary">
+                  <option value="">📁 所有文件類型</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <input type="text" id="filterDocChart" class="form-control form-control-lg border-primary" placeholder="🔍 搜尋 病歷號...">
+              </div>
+              <div class="col-md-3">
+                <input type="text" id="filterDocWard" class="form-control form-control-lg border-primary" placeholder="🔍 搜尋 病房床號...">
+              </div>
+              <div class="col-md-3">
+                <input type="text" id="filterDocDisp" class="form-control form-control-lg border-primary" placeholder="🔍 搜尋 附加資訊...">
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover table-striped align-middle fs-5 border">
+                <thead class="table-primary">
+                  <tr>
+                    <th width="15%">日期 / 狀態</th>
+                    <th width="15%">文件類型</th>
+                    <th width="40%">病房 / 病歷號 / 附加資訊</th>
+                    <th width="30%">經手歷程 (人員與時間)</th>
+                  </tr>
+                </thead>
+                <tbody id="docRecordsBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/config.js"></script>
+  <script>
+    let allMedsData = [];
+    let allDocsData = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      document.getElementById('startDate').value = today;
+      document.getElementById('endDate').value = today;
+      
+      document.getElementById('filterMedDisp').addEventListener('input', renderMeds);
+      document.getElementById('filterMedChart').addEventListener('input', renderMeds);
+      
+      document.getElementById('filterDocType').addEventListener('change', renderDocs);
+      document.getElementById('filterDocChart').addEventListener('input', renderDocs);
+      document.getElementById('filterDocWard').addEventListener('input', renderDocs);
+      document.getElementById('filterDocDisp').addEventListener('input', renderDocs);
+
+      loadRecords();
+    });
+
+    async function loadRecords() {
+      const start = document.getElementById('startDate').value;
+      const end = document.getElementById('endDate').value;
+      if(!start || !end) return;
+
+      const medBody = document.getElementById('medRecordsBody');
+      const docBody = document.getElementById('docRecordsBody');
+      medBody.innerHTML = '<tr><td colspan="7" class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2">資料讀取中...</p></td></tr>';
+      docBody.innerHTML = '<tr><td colspan="4" class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">資料讀取中...</p></td></tr>';
+
+      const payload = { startDate: start, endDate: end };
+
+      const [medRes, docRes] = await Promise.all([
+        callGAS('getDailyRecords', payload),
+        callGAS('getPublicDocRecords', payload)
+      ]);
+
+      allMedsData = medRes.success ? medRes.data : [];
+      allDocsData = docRes.success ? docRes.data : [];
+
+      populateDocTypes();
+      renderMeds();
+      renderDocs();
+    }
+
+    function populateDocTypes() {
+      const select = document.getElementById('filterDocType');
+      const currentVal = select.value;
+      const uniqueTypes = [...new Set(allDocsData.map(r => r.DocType))].filter(Boolean);
+      
+      let optionsHtml = '<option value="">📁 所有文件類型</option>';
+      uniqueTypes.forEach(type => {
+        optionsHtml += `<option value="${type}">${type}</option>`;
+      });
+      select.innerHTML = optionsHtml;
+      if (uniqueTypes.includes(currentVal)) select.value = currentVal;
+    }
+
+// 建立一個輔助函式：將 20260205 轉成 2026/02/05 格式顯示
+    function formatRxDate(rawStr) {
+      if (!rawStr || rawStr.length !== 8) return rawStr;
+      return `${rawStr.substring(0, 4)}/${rawStr.substring(4, 6)}/${rawStr.substring(6, 8)}`;
+    }
+
+    function renderMeds() {
+      const dispFilter = document.getElementById('filterMedDisp').value.trim().toLowerCase();
+      const chartFilter = document.getElementById('filterMedChart').value.trim().toLowerCase();
+      
+      // ★ 取得畫面上方篩選器的日期，並拔除連字號 (例如 "2026-05-19" 轉成 "20260519") 供處方日期比對
+      const startVal = document.getElementById('startDate').value.replace(/-/g, '');
+      const endVal = document.getElementById('endDate').value.replace(/-/g, '');
+      
+      const filtered = allMedsData.filter(r => {
+        const matchDisp = (r.dispNo || '').toLowerCase().includes(dispFilter);
+        const matchChart = (r.chartNo || '').toLowerCase().includes(chartFilter);
+        
+        // ★ 核心修改：讓前端篩選器改為比對處方日期 (RxDate)
+        const rawRx = (r.rxDate || '').replace(/[^0-9]/g, ''); // 確保只有純數字
+        const matchDate = (!startVal || rawRx >= startVal) && (!endVal || rawRx <= endVal);
+        
+        return matchDisp && matchChart && matchDate;
+      });
+
+      const tbody = document.getElementById('medRecordsBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
+        return;
+      }
+
+      // 群組邏輯：以「條碼/唯一鍵值」歸戶
+      const groupedData = {};
+      filtered.forEach(r => {
+        const uniqueKey = r.barcode || `${r.dispNo}_${r.rxDate}_${r.chartNo}`;
+
+        if (!groupedData[uniqueKey]) {
+          groupedData[uniqueKey] = { 
+            dispNo: r.dispNo,
+            dateStr: r.dateStr, 
+            rxDate: r.rxDate, // 保留處方日期
+            chartNo: r.chartNo, 
+            records: [] 
+          };
+        }
+        groupedData[uniqueKey].records.push(r);
+      });
+
+      // 排序邏輯：依領藥號由小至大
+      const sortedKeys = Object.keys(groupedData).sort((a, b) => {
+        const numA = parseInt(groupedData[a].dispNo, 10);
+        const numB = parseInt(groupedData[b].dispNo, 10);
+        if (!isNaN(numA) && !isNaN(numB)) {
+          if (numA === numB) return a.localeCompare(b);
+          return numA - numB; 
+        } 
+        return groupedData[a].dispNo.localeCompare(groupedData[b].dispNo); 
+      });
+
+      let html = '';
+      sortedKeys.forEach((key, index) => {
+        const group = groupedData[key];
+        const dispNo = group.dispNo; 
+        const collapseId = `collapseMed_${index}`;
+        const latestRecord = group.records[0];
+
+        // 顏色區分邏輯
+        const latestType = latestRecord.TaskType || latestRecord.taskType || '未註記';
+        let typeBadge = 'bg-secondary';
+        if (latestType === '氣送') typeBadge = 'bg-info text-dark';
+        else if (latestType === '取消領藥') typeBadge = 'bg-danger text-white'; 
+        else if (latestType !== '未註記') typeBadge = 'bg-warning text-dark';
+
+        html += `
+          <tr>
+            <td>${formatRxDate(group.rxDate)}</td>
+            <td class="text-success fw-bold">${dispNo}</td>
+            <td>${group.chartNo}</td>
+            <td><span class="badge ${typeBadge} fs-6">${latestType}</span></td>
+            <td>
+              <span class="text-primary fw-bold">${latestRecord.staffName}</span> 
+              <span class="text-muted small ms-1">(${latestRecord.dateStr} ${latestRecord.time})</span>
+            </td>
+            <td><span class="badge bg-secondary rounded-pill">${group.records.length} 筆</span></td>
+            <td>
+              <button class="btn btn-outline-success btn-sm fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
+                詳細紀錄 <i class="bi bi-chevron-down"></i>
+              </button>
+            </td>
+          </tr>
+          <tr class="collapse sub-table-row" id="${collapseId}">
+            <td colspan="7" class="p-3">
+              <table class="table table-sm table-bordered mb-0 bg-white">
+                <thead class="table-light"><tr><th>處方日期</th><th>傳送方式</th><th>經手人員</th><th>刷入日期與時間</th></tr></thead>
+                <tbody>
+                  ${group.records.map(sub => {
+                    const subType = sub.TaskType || sub.taskType || '未註記';
+                    let subTypeBadge = 'bg-secondary';
+                    if (subType === '氣送') subTypeBadge = 'bg-info text-dark';
+                    else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; 
+                    else if (subType !== '未註記') subTypeBadge = 'bg-warning text-dark';
+                    
+                    // ★ 修正 3：展開明細的最後一欄也同步改為完整的 (LogDate + Time) 紀錄
+                    return `<tr><td>${formatRxDate(sub.rxDate)}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName}</td><td>${sub.dateStr} ${sub.time}</td></tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    function renderDocs() {
+      const typeFilter = document.getElementById('filterDocType').value; 
+      const chartFilter = document.getElementById('filterDocChart').value.trim().toLowerCase();
+      const wardFilter = document.getElementById('filterDocWard').value.trim().toLowerCase();
+      const dispFilter = document.getElementById('filterDocDisp').value.trim().toLowerCase();
+      
+
+      const filtered = allDocsData.filter(r => {
+        const rawSearchText = `${r.SendNote || ''} ${r.ReceiveNote || ''} ${r.Quantity || ''} ${r.PickupNo || ''}`.toLowerCase();
+        const matchType = typeFilter === "" ? true : r.DocType === typeFilter; 
+        const matchChart = (r.ChartNo || '').toLowerCase().includes(chartFilter);
+        const matchWard = (r.Ward || '').toLowerCase().includes(wardFilter);
+        const matchDisp = rawSearchText.includes(dispFilter);
+        return matchType && matchChart && matchWard && matchDisp;
+      }).sort((a, b) => {
+        const getLatestTime = (item) => {
+          if (item.ReturnTime) return new Date(item.ReturnTime);
+          if (item.ReceiveTime) return new Date(item.ReceiveTime);
+          return new Date(item.SendTime || 0); 
+        };
+        return getLatestTime(b) - getLatestTime(a); 
+      });
+
+      const tbody = document.getElementById('docRecordsBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(r => {
+        let statusText = '待藥師收單';
+        let statusBadge = 'bg-warning text-dark';
+        if (r.IsClosed) {
+            statusText = (r.ReplyOption === '收下不歸還') ? '已結案' : '已領回';
+            statusBadge = 'bg-secondary';
+        } else if (r.IsReceived) {
+            statusText = r.ReplyOption;
+            statusBadge = (r.ReplyOption === '收下不歸還') ? 'bg-success' : 'bg-danger';
+        }
+
+        let detailsArr = [];
+        if(r.Ward) detailsArr.push(`病房: <span class="text-primary fw-bold">${r.Ward}</span>`);
+        if(r.ChartNo) detailsArr.push(`病歷: <span class="text-dark fw-bold">${r.ChartNo}</span>`);
+        if(r.Quantity) detailsArr.push(`數量: <span class="text-danger fw-bold">${r.Quantity}</span>`);
+        if(r.PickupNo) detailsArr.push(`領藥號: <span class="text-success fw-bold">${r.PickupNo}</span>`);
+        
+        let sendTimeStr = r.SendTime ? new Date(r.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+        let receiveTimeStr = r.ReceiveTime ? new Date(r.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+        let returnTimeStr = r.ReturnTime ? new Date(r.ReturnTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+        let dateOnly = r.SendTime ? r.SendTime.split('T')[0] : ''; 
+
+        return `
+        <tr>
+          <td>
+            <div class="fw-bold text-secondary mb-1">${dateOnly}</div>
+            <span class="badge ${statusBadge} fs-6 d-inline-block mb-1">${statusText}</span>
+          </td>
+          
+          <td class="fw-bold fs-5 text-dark">${r.DocType || ''}</td>
+          
+          <td>
+            <div class="mb-2 text-secondary">${detailsArr.join(' | ')}</div>
+            ${r.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${r.SendNote}</div>` : ''}
+            ${r.ReceiveNote ? `<div class="bg-blue-light p-1 rounded small text-primary border mb-1" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${r.ReceiveNote}</div>` : ''}
+          </td>
+          
+          <td>
+            <ul class="list-unstyled mb-0 small">
+              <li class="mb-1">
+                <i class="bi bi-person-walking text-dark me-1"></i>送件: <strong>${r.SenderName || ''}</strong> 
+                <span class="text-muted ms-1">(${sendTimeStr})</span>
+              </li>
+              ${r.IsReceived ? `
+              <li class="mb-1">
+                <i class="bi bi-capsule text-primary me-1"></i>收單: <strong class="text-primary">${r.PharmaName || ''}</strong> 
+                <span class="text-muted ms-1">(${receiveTimeStr})</span>
+              </li>` : ''}
+              ${r.ReturnerName ? `
+              <li>
+                <i class="bi bi-check2-circle text-success me-1"></i>領回: <strong class="text-success">${r.ReturnerName}</strong> 
+                <span class="text-muted ms-1">(${returnTimeStr})</span>
+              </li>` : ''}
+            </ul>
+          </td>
+        </tr>
+      `}).join('');
+    }
+  </script>
+</body>
+</html>

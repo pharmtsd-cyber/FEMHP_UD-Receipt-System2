@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>藥師作業區 - 住院藥局收發系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-light">
+
+  <nav class="navbar navbar-dark bg-primary mb-3 shadow-sm px-3">
+    <div class="d-flex align-items-center">
+      <span class="navbar-brand mb-0 h1 fs-3"><i class="bi bi-capsule me-2"></i>藥師作業專區</span>
+      <span class="text-white fs-4 ms-4">目前登入：<strong id="displayPharma">載入中...</strong></span>
+    </div>
+    <div class="d-flex align-items-center">
+      <a href="public_records.html" target="_blank" class="btn btn-outline-light btn-lg fw-bold me-3">
+        <i class="bi bi-search me-1"></i>綜合查詢平台
+      </a>
+      <button class="btn btn-outline-light btn-lg" onclick="logout()">登出</button>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4">
+    <ul class="nav nav-tabs nav-fill mb-4 fs-4" id="pharmaTab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="pneumatic-tab" data-bs-toggle="tab" data-bs-target="#pneumatic" type="button" role="tab">
+          🚀 氣送作業管理
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="doc-receive-tab" data-bs-toggle="tab" data-bs-target="#docReceive" type="button" role="tab">
+          📥 文件收單作業 <span class="badge bg-danger rounded-pill ms-2" id="pendingDocCount">0</span>
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content" id="pharmaTabContent">
+      
+      <div class="tab-pane fade" id="pneumatic" role="tabpanel">
+        <div class="row">
+          <div class="col-lg-5 mb-4">
+            <div class="card shadow border-success h-100">
+              <div class="card-body text-center p-5">
+                <input type="hidden" id="pneumaticDate">
+                <h3 class="text-success fw-bold mb-4">請將游標點擊下方框格並刷入條碼</h3>
+                <input type="text" id="pneumaticBarcodeInput" class="form-control text-center huge-text py-4 border-success" placeholder="請刷入藥袋條碼..." autofocus>
+                <p class="form-text mt-4 fs-4">💡 刷入條碼後系統將自動送出<br>游標會自動保持在框內，可連續刷入！</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-7">
+            <div class="card shadow h-100">
+              <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h4 class="m-0 text-success fw-bold">✅ 今日氣送作業清單</h4>
+                <span class="badge bg-success fs-4">總筆數: <span id="pneumaticTotalCount">0</span></span>
+              </div>
+              <div class="card-body" id="pneumaticCardContainer" style="height: 600px; overflow-y: auto;">
+                <div class="text-muted text-center mt-5 fs-4" id="pneumaticEmptyState">目前尚無紀錄</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade show active" id="docReceive" role="tabpanel">
+        
+        <div class="row g-2 mb-3 bg-white p-3 rounded shadow-sm border border-primary-subtle">
+          <div class="col-md-3">
+            <label class="small fw-bold text-primary mb-1"><i class="bi bi-filter"></i> 文件類型</label>
+            <select id="filterPharmaDocType" class="form-select border-primary">
+              <option value="">📁 所有文件類型</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="small fw-bold text-primary mb-1"><i class="bi bi-search"></i> 病歷號</label>
+            <input type="text" id="filterPharmaChart" class="form-control border-primary" placeholder="輸入病歷號關鍵字...">
+          </div>
+          <div class="col-md-3">
+            <label class="small fw-bold text-primary mb-1"><i class="bi bi-house-door"></i> 病房床號</label>
+            <input type="text" id="filterPharmaWard" class="form-control border-primary" placeholder="輸入病房床號...">
+          </div>
+          <div class="col-md-3">
+            <label class="small fw-bold text-primary mb-1"><i class="bi bi-info-circle"></i> 附加資訊/備註</label>
+            <input type="text" id="filterPharmaDisp" class="form-control border-primary" placeholder="搜尋備註、領藥號...">
+          </div>
+        </div>
+
+        <div class="card shadow border-primary h-100">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
+            <h5 class="m-0 fw-bold">單據處理區</h5>
+            <button class="btn btn-light btn-sm fw-bold" id="btnRefreshPending"><i class="bi bi-arrow-clockwise me-1"></i>重整資料</button>
+          </div>
+          <div class="card-body bg-light p-3">
+            <ul class="nav nav-pills nav-fill mb-3 fw-bold" id="pharmaDocSubTab" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="pharma-unresolved-tab" data-bs-toggle="pill" data-bs-target="#pharmaUnresolved" type="button" role="tab">
+                  ⏳ 待處理 / 未結案 <span class="badge bg-danger rounded-pill ms-2" id="pendingDocCount">0</span>
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pharma-resolved-tab" data-bs-toggle="pill" data-bs-target="#pharmaResolved" type="button" role="tab">✅ 今日已處理</button>
+              </li>
+            </ul>
+
+            <div class="tab-content" id="pharmaDocSubTabContent">
+              <div class="tab-pane fade show active" id="pharmaUnresolved" role="tabpanel" style="height: 600px; overflow-y: auto;">
+                <div class="text-muted text-center py-5 fs-4">資料讀取中...</div>
+              </div>
+              <div class="tab-pane fade" id="pharmaResolved" role="tabpanel" style="height: 600px; overflow-y: auto;">
+                <div class="text-muted text-center py-5 fs-4">資料讀取中...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/pharmacist.js"></script> </body>
+</body>
+</html>

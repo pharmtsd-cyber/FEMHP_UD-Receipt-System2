@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>傳送作業區 - 住院藥局收發系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-light">
+
+  <!-- 頂部導覽列與登出 -->
+  <nav class="navbar navbar-dark bg-success mb-3 shadow-sm px-3">
+    <div class="d-flex align-items-center">
+      <span class="navbar-brand mb-0 h1 fs-3">🏃‍♂️ 傳送人員作業專區</span>
+      <span class="text-white fs-4 ms-4">目前登入：<strong id="displayUser">載入中...</strong></span>
+    </div>
+    <a href="public_records.html" target="_blank" class="btn btn-outline-light btn-lg fw-bold me-3">
+      <i class="bi bi-search me-1"></i>綜合查詢平台
+    </a>
+    <button class="btn btn-outline-light btn-lg" onclick="logout()">登出</button>
+  </nav>
+
+  <div class="container-fluid px-4">
+    <!-- 上方切換頁籤 (Tab) -->
+    <ul class="nav nav-tabs nav-fill mb-4 fs-4 fw-bold" id="myTab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active text-success" id="discharge-tab" data-bs-toggle="tab" data-bs-target="#discharge" type="button" role="tab">📦 出院帶藥簽收</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link text-secondary" id="doc-tab" data-bs-toggle="tab" data-bs-target="#doc" type="button" role="tab">📄 送文件給藥局</button>
+      </li>
+    </ul>
+
+    <!-- 頁籤內容區 -->
+    <div class="tab-content" id="myTabContent">
+      
+      <!-- 第一頁籤：出院帶藥 -->
+      <div class="tab-pane fade show active" id="discharge" role="tabpanel">
+        <div class="row">
+          <!-- 左側：超大刷條碼區 -->
+          <div class="col-lg-5 mb-4">
+            <div class="card shadow border-success h-100">
+              <div class="card-body text-center p-5">
+                <input type="hidden" id="medDate">
+                <h3 class="text-success fw-bold mb-4">請將游標點擊下方框格並刷入條碼</h3>
+                
+                <input type="text" id="barcodeInput" class="form-control text-center huge-text py-4 border-success" placeholder="請刷入藥袋條碼..." autofocus>
+                
+                <p class="form-text mt-4 fs-4">💡 刷入條碼後系統將自動送出<br>游標會自動保持在框內，可連續刷入！</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右側：已完成清單區 -->
+          <div class="col-lg-7">
+            <div class="card shadow h-100">
+              <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h4 class="m-0 text-success fw-bold">✅ 今日已簽收清單</h4>
+                <span class="badge bg-success fs-4">總筆數: <span id="totalCount">0</span></span>
+              </div>
+              <div class="card-body" id="cardContainer" style="height: 600px; overflow-y: auto;">
+                <div class="text-muted text-center mt-5 fs-4" id="emptyState">目前尚無紀錄</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+<!-- 確保您的 html 裡有這段結構 -->
+<div class="tab-pane fade" id="doc" role="tabpanel">
+  <div class="row">
+    <!-- 左側：動態表單輸入區 -->
+    <div class="col-lg-5 mb-4">
+      <div class="card shadow border-primary h-100">
+        <div class="card-body p-4">
+          <h3 class="text-primary fw-bold mb-4"><i class="bi bi-file-earmark-text me-2"></i>填寫送件資訊</h3>
+          
+          <form id="docForm">
+            <!-- 1. 選擇送件類型 -->
+            <div class="mb-4">
+              <label class="form-label fw-bold fs-4">送件類型 <span class="text-danger">*</span></label>
+              <select id="docTypeSelect" class="form-select form-select-lg border-primary fs-4" required>
+                <option value="">請選擇類型...</option>
+              </select>
+            </div>
+
+            <!-- 2. 動態欄位容器 -->
+            <div id="dynamicFieldsContainer" class="p-3 bg-light rounded mb-4 border">
+              <div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>
+            </div>
+
+            <!-- 3. 固定備註欄位 -->
+            <div class="mb-4">
+              <label class="form-label fw-bold fs-4">送件備註 (選填)</label>
+              <textarea id="docNote" class="form-control fs-4" rows="2" placeholder="如有特殊交辦事項請註明..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 fw-bold py-3 fs-3" id="btnSubmitDoc">
+              <i class="bi bi-send-fill me-2"></i>確認送出
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右側：今日送件進度紀錄 -->
+    <div class="col-lg-7">
+      <div class="card shadow h-100 border-primary">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+          <h4 class="m-0 fw-bold"><i class="bi bi-clock-history me-2"></i>送件進度追蹤</h4>
+          <button class="btn btn-light btn-sm fw-bold" id="btnRefreshDoc">
+            <i class="bi bi-arrow-clockwise me-1"></i>重整
+          </button>
+        </div>
+        <div class="card-body bg-light">
+          <ul class="nav nav-pills nav-fill mb-3 fw-bold" id="docSubTab" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="doc-unresolved-tab" data-bs-toggle="pill" data-bs-target="#docUnresolved" type="button" role="tab">⏳ 近兩日未結案</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="doc-resolved-tab" data-bs-toggle="pill" data-bs-target="#docResolved" type="button" role="tab">✅ 今日已結案</button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="docSubTabContent">
+            <div class="tab-pane fade show active" id="docUnresolved" role="tabpanel" style="height: 600px; overflow-y: auto;">
+              </div>
+            <div class="tab-pane fade" id="docResolved" role="tabpanel" style="height: 600px; overflow-y: auto;">
+              </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/transport.js"></script>
+</body>
+</html>
