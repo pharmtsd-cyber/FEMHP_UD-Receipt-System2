@@ -41,7 +41,10 @@
           <li class="nav-item" role="presentation">
             <button class="nav-link text-primary" id="doc-tab" data-bs-toggle="tab" data-bs-target="#doc" type="button">📄 文件收發紀錄</button>
           </li>
-          <li class="nav-item" role="presentation">
+                    <li class="nav-item" role="presentation">
+            <button class="nav-link text-danger fw-bold" id="undispensed-tab" data-bs-toggle="tab" data-bs-target="#undispensed" type="button">🛑 未發藥交接紀錄</button>
+          </li>
+<li class="nav-item" role="presentation">
             <button class="nav-link text-warning fw-bold" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard" type="button">📊 統計面板</button>
           </li>
         </ul>
@@ -58,7 +61,82 @@
             </div>
           </div>
           
-          <div class="tab-pane fade show active" id="med" role="tabpanel">
+                    <!-- 新增：未發藥交接紀錄 區塊 -->
+          <div class="tab-pane fade" id="undispensed" role="tabpanel">
+            
+            <!-- 藥師輸入表單 -->
+            <div class="card shadow-sm border-danger mb-4">
+              <div class="card-header bg-danger text-white fw-bold fs-5">
+                <i class="bi bi-pencil-square me-2"></i>新增交接紀錄
+              </div>
+              <div class="card-body">
+                <form id="undispensedForm">
+                  <div class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                      <label class="form-label fw-bold text-muted">診別</label>
+                      <select id="udClinicType" class="form-select border-danger">
+                        <option value="住院藥局" selected>住院藥局</option>
+                        <option value="門診藥局">門診藥局</option>
+                        <option value="急診藥局">急診藥局</option>
+                      </select>
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label fw-bold text-muted">處方日期</label>
+                      <input type="date" id="udRxDate" class="form-control border-danger" required>
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label fw-bold text-muted">領藥號</label>
+                      <input type="text" id="udDispenseNo" class="form-control border-danger" required placeholder="例如: 80001">
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label fw-bold text-muted">問題分類</label>
+                      <select id="udCategory" class="form-select border-danger">
+                        <option value="爭議處方" selected>爭議處方</option>
+                        <option value="OrderRenew">OrderRenew</option>
+                        <option value="重複建檔">重複建檔</option>
+                        <option value="物按領藥鍵">物按領藥鍵</option>
+                        <option value="護理師要求不發藥">護理師要求不發藥</option>
+                        <option value="剩藥帶回">剩藥帶回</option>
+                        <option value="其他(填寫備註)">其他(填寫備註)</option>
+                      </select>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label fw-bold text-muted">備註/處方建議</label>
+                      <textarea id="udNote" class="form-control border-danger" rows="1" placeholder="填寫詳細原因..."></textarea>
+                    </div>
+                    <div class="col-md-1 text-end">
+                      <button type="submit" class="btn btn-danger w-100 fw-bold">送出</button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- 全欄位模糊搜尋器 -->
+            <div class="filter-box mb-3">
+              <input type="text" id="filterUndispensed" class="form-control form-control-lg border-danger" placeholder="🔍 模糊搜尋 (診別/領藥號/問題分類/備註/藥師)...">
+            </div>
+            
+            <!-- 查詢列表 -->
+            <div class="table-responsive">
+              <table class="table table-hover align-middle fs-5 border">
+                <thead class="table-danger">
+                  <tr>
+                    <th>紀錄時間</th>
+                    <th>處方日期</th>
+                    <th>診別</th>
+                    <th>領藥號</th>
+                    <th>問題分類</th>
+                    <th>備註/處方建議</th>
+                    <th>登錄藥師</th>
+                  </tr>
+                </thead>
+                <tbody id="undispensedRecordsBody"></tbody>
+              </table>
+            </div>
+          </div>
+          
+<div class="tab-pane fade show active" id="med" role="tabpanel">
             <div class="filter-box row g-3">
               <div class="col-md-4">
                 <input type="text" id="filterMedDisp" class="form-control form-control-lg border-success" placeholder="🔍 搜尋 領藥號 (可輸入片段)...">
@@ -121,6 +199,7 @@
 <script>
     let allMedsData = [];
     let allDocsData = [];
+    let allUdData = []; // ★ 新增這行
 
     document.addEventListener('DOMContentLoaded', () => {
       const now = new Date();
@@ -136,6 +215,83 @@
       document.getElementById('filterDocWard').addEventListener('input', renderDocs);
       document.getElementById('filterDocDisp').addEventListener('input', renderDocs);
 
+      
+      document.getElementById('filterUndispensed').addEventListener('input', renderUndispensed);
+      document.getElementById('udRxDate').value = today; // 表單預設今天
+
+      // ★ 攔截：點擊 未發藥交接紀錄 分頁時，檢查是否已登入藥師
+      document.getElementById('undispensed-tab').addEventListener('show.bs.tab', async (e) => {
+        const pharmaId = sessionStorage.getItem('pharmaId');
+        if (!pharmaId) {
+          e.preventDefault(); // 阻擋未登入直接進入
+          const { value: loginId } = await Swal.fire({
+            title: '藥師身分驗證',
+            input: 'text',
+            inputPlaceholder: '請輸入藥師員工編號',
+            showCancelButton: true,
+            confirmButtonText: '登入',
+            cancelButtonText: '取消',
+            confirmButtonColor: '#dc3545'
+          });
+
+          if (loginId) {
+            Swal.fire({ title: '驗證中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            const res = await callGAS('pharmacistLogin', { staffId: loginId.trim().toUpperCase() });
+            if (res.success) {
+              // 通過驗證，寫入 sessionStorage 
+              sessionStorage.setItem('pharmaId', res.staffId);
+              sessionStorage.setItem('pharmaName', res.name);
+              Swal.fire({ icon: 'success', title: `歡迎 ${res.name} 藥師`, timer: 1500, showConfirmButton: false });
+              
+              // 登入成功，手動切換至該分頁
+              const tab = new bootstrap.Tab(document.getElementById('undispensed-tab'));
+              tab.show();
+            } else {
+              Swal.fire('登入失敗', res.message, 'error');
+            }
+          }
+        }
+      });
+
+      // ★ 綁定表單送出事件
+      document.getElementById('undispensedForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pharmaId = sessionStorage.getItem('pharmaId');
+        const pharmaName = sessionStorage.getItem('pharmaName');
+        
+        if(!pharmaId) {
+          Swal.fire('錯誤', '登入憑證已失效，請重新整理頁面。', 'error');
+          return;
+        }
+
+        const rawRxDate = document.getElementById('udRxDate').value.replace(/-/g, ''); // 轉成純數字
+        const payload = {
+          clinicType: document.getElementById('udClinicType').value,
+          rxDate: rawRxDate, 
+          dispenseNo: document.getElementById('udDispenseNo').value.trim(),
+          problemCategory: document.getElementById('udCategory').value,
+          note: document.getElementById('udNote').value.trim(),
+          pharmaId: pharmaId,
+          pharmaName: pharmaName
+        };
+
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        const res = await callGAS('submitUndispensedRecord', payload);
+        if (res.success) {
+          Toast.fire({ icon: 'success', title: '新增紀錄成功' });
+          e.target.reset(); // 清空表單
+          document.getElementById('udRxDate').value = document.getElementById('startDate').value; // 恢復成篩選器日期
+          loadRecords(); // 重新向伺服器要資料刷新清單
+        } else {
+          Swal.fire('失敗', res.message, 'error');
+        }
+        btn.disabled = false;
+        btn.innerHTML = '送出';
+      });
+      
       loadRecords();
     });
 
@@ -146,22 +302,29 @@
 
       const medBody = document.getElementById('medRecordsBody');
       const docBody = document.getElementById('docRecordsBody');
+      const udBody = document.getElementById('undispensedRecordsBody'); // ★ 新增
+      
       medBody.innerHTML = '<tr><td colspan="7" class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2">資料讀取中...</p></td></tr>';
       docBody.innerHTML = '<tr><td colspan="4" class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">資料讀取中...</p></td></tr>';
+      udBody.innerHTML = '<tr><td colspan="7" class="text-center py-5"><div class="spinner-border text-danger"></div><p class="mt-2">資料讀取中...</p></td></tr>';
 
       const payload = { startDate: start, endDate: end };
 
-      const [medRes, docRes] = await Promise.all([
+      // ★ 新增取得未發藥交接紀錄
+      const [medRes, docRes, udRes] = await Promise.all([
         callGAS('getDailyRecords', payload),
-        callGAS('getPublicDocRecords', payload)
+        callGAS('getPublicDocRecords', payload),
+        callGAS('getUndispensedRecords', payload)
       ]);
 
       allMedsData = medRes.success ? medRes.data : [];
       allDocsData = docRes.success ? docRes.data : [];
+      allUdData = udRes.success ? udRes.data : [];
 
       populateDocTypes();
       renderMeds();
       renderDocs();
+      renderUndispensed(); // ★ 渲染新表格
     }
 
     function populateDocTypes() {
@@ -376,6 +539,36 @@
           </td>
         </tr>
       `}).join('');
+    }
+
+    function renderUndispensed() {
+      const filterText = document.getElementById('filterUndispensed').value.trim().toLowerCase();
+      const tbody = document.getElementById('undispensedRecordsBody');
+
+      // 全欄位轉成小寫字串進行模糊搜尋，並依照 createdTime 降冪排序 (最新的在最上面)
+      const filtered = allUdData.filter(r => {
+        const rawString = `${r.clinicType} ${r.rxDate} ${r.dispenseNo} ${r.problemCategory} ${r.note} ${r.pharmaName} ${r.pharmaId}`.toLowerCase();
+        return rawString.includes(filterText);
+      }).sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0));
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(r => {
+        return `
+        <tr>
+          <td class="text-muted">${r.createdTime}</td>
+          <td>${formatRxDate(r.rxDate)}</td>
+          <td><span class="badge bg-secondary">${r.clinicType}</span></td>
+          <td class="text-danger fw-bold fs-5">${r.dispenseNo}</td>
+          <td><span class="badge bg-danger">${r.problemCategory}</span></td>
+          <td>${r.note}</td>
+          <td><span class="text-primary fw-bold">${r.pharmaName}</span> <span class="small text-muted">(${r.pharmaId})</span></td>
+        </tr>
+        `;
+      }).join('');
     }
   </script>
 </body>
