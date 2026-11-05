@@ -429,7 +429,7 @@ async function loadTodayDocs() {
     unresolvedData.sort(sortDesc);
     resolvedData.sort(sortDesc);
 
-// 卡片渲染函數 (傳送端與藥師端統一外觀)
+// 卡片渲染函數
     const renderCards = (dataArray, emptyMsg) => {
       if (dataArray.length === 0) return `<div class="text-muted text-center py-5 fs-5">${emptyMsg}</div>`;
       
@@ -449,6 +449,11 @@ async function loadTodayDocs() {
         const pharma = item.pharmaName || item.PharmaName || '等待中';
         const sendTime = item.sendTime || item.SendTime || '';
         const receiveTime = item.receiveTime || item.ReceiveTime || '';
+        
+        // ★ 新增：抓取領回人與領回時間
+        const returner = item.returnerName || item.ReturnerName || '';
+        const returnerId = item.returnerId || item.ReturnerId || '';
+        const returnTime = item.returnTime || item.ReturnTime || '';
 
         if (wardVal) details.push(`病房: <span class="fw-bold text-primary fs-5 align-middle">${wardVal}</span>`);
         if (chartVal) details.push(`病歷: <span class="fw-bold text-dark fs-5 align-middle">${chartVal}</span>`);
@@ -461,9 +466,13 @@ async function loadTodayDocs() {
         else if (status.includes('已結案') || status.includes('已領回') || status === '收下不歸還') { statusBadge = 'bg-secondary text-white'; borderColor = 'border-secondary'; }
         else if (status !== '待藥師收單') { statusBadge = 'bg-primary text-white'; borderColor = 'border-primary'; }
 
+        // ★ 組合顯示文字與格式化時間 (MM/DD HH:mm)
         const senderStr = senderId ? `${sender} (${senderId})` : sender;
-        const receiveTimeStr = receiveTime ? `(${receiveTime.substring(11,16)})` : '';
-        const sendTimeStr = sendTime ? sendTime.substring(0, 16) : '';
+        const returnerStr = returnerId ? `${returner} (${returnerId})` : returner;
+        const formatTime = (t) => t ? String(t).substring(5, 16).replace('-', '/') : '';
+        const sendTimeStr = formatTime(sendTime);
+        const receiveTimeStr = formatTime(receiveTime);
+        const returnTimeStr = formatTime(returnTime);
 
         const args = `'${signId}', '${type}', '${wardVal || ''}', '${chartVal || ''}', '${qtyVal || ''}', '${pickupVal || ''}', '${sendNote || ''}'`;
 
@@ -483,7 +492,7 @@ async function loadTodayDocs() {
                 <span class="badge ${statusBadge} fs-6 me-2">${status}</span>
                 <strong class="fs-4 text-dark align-middle">${type}</strong>
               </div>
-              <span class="text-muted small"><i class="bi bi-clock me-1"></i>${sendTimeStr}</span>
+              <!-- ★ 已移除右上角時間 -->
             </div>
             
             <div class="text-secondary mb-2 mt-2 lh-base border-bottom pb-2">
@@ -495,8 +504,19 @@ async function loadTodayDocs() {
             
             <div class="d-flex justify-content-between align-items-end mt-2 pt-1">
               <div class="small text-muted">
-                <div class="mb-1"><i class="bi bi-person-walking"></i> 送件: <span class="fw-bold text-dark">${senderStr}</span></div>
-                <div><i class="bi bi-capsule"></i> 藥師: <span class="${pharma === '等待中' ? 'text-danger' : 'text-primary'} fw-bold">${pharma} ${receiveTimeStr}</span></div>
+                <div class="mb-1">
+                  <i class="bi bi-person-walking"></i> 送件: <span class="fw-bold text-dark">${senderStr}</span> 
+                  <span class="ms-1 text-black-50">${sendTimeStr}</span>
+                </div>
+                <div class="${returner ? 'mb-1' : ''}">
+                  <i class="bi bi-capsule"></i> 藥師: <span class="${pharma === '等待中' ? 'text-danger' : 'text-primary'} fw-bold">${pharma}</span> 
+                  <span class="ms-1 text-black-50">${receiveTimeStr}</span>
+                </div>
+                ${returner ? `
+                <div>
+                  <i class="bi bi-check2-circle text-success"></i> 領回: <span class="fw-bold text-success">${returnerStr}</span> 
+                  <span class="ms-1 text-black-50">${returnTimeStr}</span>
+                </div>` : ''}
               </div>
               <div>
                 ${actionsHtml}
