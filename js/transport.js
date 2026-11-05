@@ -429,6 +429,7 @@ async function loadTodayDocs() {
     unresolvedData.sort(sortDesc);
     resolvedData.sort(sortDesc);
 
+// 卡片渲染函數 (傳送端與藥師端統一外觀)
     const renderCards = (dataArray, emptyMsg) => {
       if (dataArray.length === 0) return `<div class="text-muted text-center py-5 fs-5">${emptyMsg}</div>`;
       
@@ -439,38 +440,66 @@ async function loadTodayDocs() {
         const qtyVal = item.quantity || item.Quantity;
         const pickupVal = item.pickupNo || item.PickupNo;
         const status = item.status || item.Status;
+        const type = item.type || item.Type || item.DocType;
+        const signId = item.signId || item.SignId;
+        const sendNote = item.sendNote || item.SendNote;
+        const receiveNote = item.receiveNote || item.ReceiveNote;
+        const sender = item.sender || item.SenderName || '';
+        const senderId = item.senderId || item.SenderId || '';
+        const pharma = item.pharmaName || item.PharmaName || '等待中';
+        const sendTime = item.sendTime || item.SendTime || '';
+        const receiveTime = item.receiveTime || item.ReceiveTime || '';
 
         if (wardVal) details.push(`病房: <span class="fw-bold text-primary fs-5 align-middle">${wardVal}</span>`);
         if (chartVal) details.push(`病歷: <span class="fw-bold text-dark fs-5 align-middle">${chartVal}</span>`);
         if (qtyVal) details.push(`數量: <span class="text-danger fw-bold fs-5 align-middle">${qtyVal}</span>`);
         if (pickupVal) details.push(`領藥號: <span class="text-success fw-bold fs-5 align-middle">${pickupVal}</span>`);
 
-        const args = `'${item.signId || item.SignId}', '${item.type || item.Type}', '${wardVal || ''}', '${chartVal || ''}', '${qtyVal || ''}', '${pickupVal || ''}', '${item.sendNote || item.SendNote || ''}'`;
+        let statusBadge = 'bg-warning text-dark';
+        let borderColor = 'border-warning';
+        if (status === '退件') { statusBadge = 'bg-danger text-white'; borderColor = 'border-danger'; }
+        else if (status.includes('已結案') || status.includes('已領回') || status === '收下不歸還') { statusBadge = 'bg-secondary text-white'; borderColor = 'border-secondary'; }
+        else if (status !== '待藥師收單') { statusBadge = 'bg-primary text-white'; borderColor = 'border-primary'; }
+
+        const senderStr = senderId ? `${sender} (${senderId})` : sender;
+        const receiveTimeStr = receiveTime ? `(${receiveTime.substring(11,16)})` : '';
+        const sendTimeStr = sendTime ? sendTime.substring(0, 16) : '';
+
+        const args = `'${signId}', '${type}', '${wardVal || ''}', '${chartVal || ''}', '${qtyVal || ''}', '${pickupVal || ''}', '${sendNote || ''}'`;
+
+        let actionsHtml = '';
+        if (status === '掛牌待傳送領回' || status === '退件') {
+           actionsHtml += `<button class="btn btn-sm btn-success fw-bold me-1" onclick="acknowledgeReturn('${signId}')">確認領回</button>`;
+        }
+        if (status === '待藥師收單') {
+           actionsHtml += `<button class="btn btn-sm btn-outline-primary fw-bold" onclick="editSenderDoc(${args})"><i class="bi bi-pencil-square me-1"></i>修改資料</button>`;
+        }
 
         return `
-        <div class="card mb-3 shadow-sm border-start border-4 ${status === '待藥師收單' ? 'border-warning' : (status === '退件' ? 'border-danger' : (status.includes('已結案') || status.includes('已領回') ? 'border-secondary' : 'border-primary'))}">
+        <div class="card mb-3 shadow-sm border-start border-4 ${borderColor}">
           <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="badge ${status === '待藥師收單' ? 'bg-warning text-dark' : (status === '退件' ? 'bg-danger' : (status.includes('已結案') || status.includes('已領回') ? 'bg-secondary' : 'bg-primary'))} fs-6">${status}</span>
-              <span class="text-muted small">${item.sendTime || item.SendTime}</span>
+              <div>
+                <span class="badge ${statusBadge} fs-6 me-2">${status}</span>
+                <strong class="fs-4 text-dark align-middle">${type}</strong>
+              </div>
+              <span class="text-muted small"><i class="bi bi-clock me-1"></i>${sendTimeStr}</span>
             </div>
-            <h5 class="fw-bold text-dark mb-1">${item.type || item.Type}</h5>
             
-            <div class="text-secondary mb-2 mt-2 lh-base">
+            <div class="text-secondary mb-2 mt-2 lh-base border-bottom pb-2">
               ${details.join('<span class="mx-2 text-black-50 fw-light">|</span>')}
             </div>
             
-            ${(item.sendNote || item.SendNote) ? `<div class="text-danger small mb-2 bg-light p-1 rounded border"><i class="bi bi-chat-left-text me-1"></i>送件備註: ${item.sendNote || item.SendNote}</div>` : ''}
-            ${(item.receiveNote || item.ReceiveNote) ? `<div class="text-primary small mb-2 bg-blue-light p-1 rounded border" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${item.receiveNote || item.ReceiveNote}</div>` : ''}
+            ${sendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded border"><i class="bi bi-chat-left-text me-1"></i>送件備註: ${sendNote}</div>` : ''}
+            ${receiveNote ? `<div class="text-primary small mb-2 bg-blue-light p-1 rounded border" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${receiveNote}</div>` : ''}
             
-            <div class="d-flex justify-content-between align-items-end mt-2 pt-2 border-top">
+            <div class="d-flex justify-content-between align-items-end mt-2 pt-1">
               <div class="small text-muted">
-                <i class="bi bi-person-walking"></i> 送件: ${item.sender || item.SenderName || ''}<br>
-                <i class="bi bi-capsule"></i> 藥師: <span class="${item.pharmaName === '等待中' || !item.pharmaName ? 'text-danger' : 'text-primary'}">${item.pharmaName || item.PharmaName || '等待中'}</span>
+                <div class="mb-1"><i class="bi bi-person-walking"></i> 送件: <span class="fw-bold text-dark">${senderStr}</span></div>
+                <div><i class="bi bi-capsule"></i> 藥師: <span class="${pharma === '等待中' ? 'text-danger' : 'text-primary'} fw-bold">${pharma} ${receiveTimeStr}</span></div>
               </div>
               <div>
-                ${(status === '掛牌待傳送領回' || status === '退件') ? `<button class="btn btn-sm btn-success fw-bold" onclick="acknowledgeReturn('${item.signId || item.SignId}')">確認領回</button>` : ''}
-                ${status === '待藥師收單' ? `<button class="btn btn-sm btn-outline-primary fw-bold" onclick="editSenderDoc(${args})"><i class="bi bi-pencil-square me-1"></i>修改資料</button>` : ''}
+                ${actionsHtml}
               </div>
             </div>
           </div>
