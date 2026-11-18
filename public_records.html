@@ -268,12 +268,15 @@
       
       document.getElementById('filterUndispensed').addEventListener('input', renderUndispensed);
       document.getElementById('udRxDate').value = today; // 表單預設今天
+      
 
-      // ★ 攔截：點擊 未發藥交接紀錄 分頁時，檢查是否已登入藥師
+// ★ 攔截：點擊 未發藥交接紀錄 分頁時，檢查是否已登入藥師並調整日期
       document.getElementById('undispensed-tab').addEventListener('show.bs.tab', async (e) => {
         const pharmaId = sessionStorage.getItem('pharmaId');
+        
+        // 1. 若未登入，阻擋進入並跳出驗證
         if (!pharmaId) {
-          e.preventDefault(); // 阻擋未登入直接進入
+          e.preventDefault(); 
           const { value: loginId } = await Swal.fire({
             title: '藥師身分驗證',
             input: 'text',
@@ -288,18 +291,58 @@
             Swal.fire({ title: '驗證中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             const res = await callGAS('pharmacistLogin', { staffId: loginId.trim().toUpperCase() });
             if (res.success) {
-              // 通過驗證，寫入 sessionStorage 
               sessionStorage.setItem('pharmaId', res.staffId);
               sessionStorage.setItem('pharmaName', res.name);
               Swal.fire({ icon: 'success', title: `歡迎 ${res.name} 藥師`, timer: 1500, showConfirmButton: false });
               
-              // 登入成功，手動切換至該分頁
+              // 登入成功後，手動觸發切換 (這會再次觸發此事件，但這次 pharmaId 已經有了)
               const tab = new bootstrap.Tab(document.getElementById('undispensed-tab'));
               tab.show();
             } else {
               Swal.fire('登入失敗', res.message, 'error');
             }
           }
+          // 未登入時直接中斷，不執行下方的日期更改
+          return; 
+        }
+
+        // 2. 確定有權限後，將日期自動設為近 3 天
+        const end = new Date();
+        const endDateStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+        
+        const start = new Date();
+        start.setDate(start.getDate() - 2); // 往前推 2 天 (共 3 天)
+        const startDateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+
+        const currentStart = document.getElementById('startDate').value;
+        const currentEnd = document.getElementById('endDate').value;
+
+        if (currentStart !== startDateStr || currentEnd !== endDateStr) {
+          document.getElementById('startDate').value = startDateStr;
+          document.getElementById('endDate').value = endDateStr;
+          loadRecords();
+        }
+      });
+
+      // ★ 當切換回「出院帶藥」或「文件收發紀錄」分頁時，自動將查詢時間設回「今天」 (不影響統計面板)
+      const resetToTodayTabs = ['med-tab', 'doc-tab'];
+      resetToTodayTabs.forEach(tabId => {
+        const tabElement = document.getElementById(tabId);
+        if (tabElement) {
+          tabElement.addEventListener('shown.bs.tab', (e) => {
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+            const currentStart = document.getElementById('startDate').value;
+            const currentEnd = document.getElementById('endDate').value;
+
+            // 如果目前日期不是今天，就還原成今天並重新查詢
+            if (currentStart !== todayStr || currentEnd !== todayStr) {
+              document.getElementById('startDate').value = todayStr;
+              document.getElementById('endDate').value = todayStr;
+              loadRecords();
+            }
+          });
         }
       });
 
