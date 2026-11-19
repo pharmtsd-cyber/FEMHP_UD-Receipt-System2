@@ -7,6 +7,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="theme.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-light">
 
@@ -52,18 +53,64 @@
         <div class="tab-content" id="recordTabContent">
           
           <div class="tab-pane fade" id="dashboard" role="tabpanel">
-            <div class="card shadow-sm border-0 border-top border-4 border-warning mt-2">
-              <div class="card-body p-0" style="height: 850px;">
-                <iframe title="住院藥局收發統計" width="100%" height="100%" 
-                  src="https://app.powerbi.com/reportEmbed?reportId=您的ID..." 
-                  frameborder="0" allowFullScreen="true">
-                </iframe>
+            <div class="row g-3 mt-2">
+              <!-- KPI 數字區 -->
+              <div class="col-md-4">
+                <div class="card bg-success text-white text-center shadow-sm border-0">
+                  <div class="card-body py-4">
+                    <h5 class="card-title fw-bold mb-3"><i class="bi bi-box-seam me-2"></i>帶藥 / 氣送總筆數</h5>
+                    <h1 class="display-4 fw-bold" id="kpi-meds">0</h1>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card bg-primary text-white text-center shadow-sm border-0">
+                  <div class="card-body py-4">
+                    <h5 class="card-title fw-bold mb-3"><i class="bi bi-file-earmark-text me-2"></i>文件收發總筆數</h5>
+                    <h1 class="display-4 fw-bold" id="kpi-docs">0</h1>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card bg-danger text-white text-center shadow-sm border-0">
+                  <div class="card-body py-4">
+                    <h5 class="card-title fw-bold mb-3"><i class="bi bi-exclamation-triangle me-2"></i>未發藥交接總筆數</h5>
+                    <h1 class="display-4 fw-bold" id="kpi-ud">0</h1>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 圖表區 -->
+              <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100">
+                  <div class="card-header bg-white fw-bold text-success border-bottom border-success border-2">帶藥 / 氣送作業分佈</div>
+                  <div class="card-body" style="height: 300px;">
+                    <canvas id="medChart"></canvas>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100">
+                  <div class="card-header bg-white fw-bold text-primary border-bottom border-primary border-2">文件類型統計排行</div>
+                  <div class="card-body" style="height: 300px;">
+                    <canvas id="docChart"></canvas>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-12 mb-4">
+                <div class="card shadow-sm border-0">
+                  <div class="card-header bg-white fw-bold text-danger border-bottom border-danger border-2">未發藥問題分類統計</div>
+                  <div class="card-body" style="height: 300px;">
+                    <canvas id="udChart"></canvas>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-
+          
           <!-- 未發藥交接紀錄 區塊 -->
           <div class="tab-pane fade" id="undispensed" role="tabpanel">
+            
             <!-- 藥師輸入表單 -->
             <div class="card shadow-sm border-danger mb-4">
               <div class="card-header bg-danger text-white fw-bold fs-5">
@@ -201,6 +248,9 @@
     let allMedsData = [];
     let allDocsData = [];
     let allUdData = [];
+    let medChartInstance = null;
+    let docChartInstance = null;
+    let udChartInstance = null;
 
     document.addEventListener('DOMContentLoaded', () => {
       const now = new Date();
@@ -305,7 +355,7 @@
         const rawRxDate = document.getElementById('udRxDate').value.replace(/-/g, '');
         const payload = {
           clinicType: document.getElementById('udClinicType').value,
-          rxDate: rawRxDate,
+          rxDate: rawRxDate, 
           dispenseNo: document.getElementById('udDispenseNo').value.trim(),
           problemCategory: document.getElementById('udCategory').value,
           note: document.getElementById('udNote').value.trim(),
@@ -330,7 +380,7 @@
         btn.disabled = false;
         btn.innerHTML = '送出';
       });
-
+      
       loadRecords();
     });
 
@@ -363,6 +413,7 @@
       renderMeds();
       renderDocs();
       renderUndispensed();
+      renderDashboard();
     }
 
     function populateDocTypes() {
@@ -378,7 +429,6 @@
       if (uniqueTypes.includes(currentVal)) select.value = currentVal;
     }
 
-    // 建立一個輔助函式：將 20260205 轉成 2026/02/05 格式顯示
     function formatRxDate(rawStr) {
       const str = String(rawStr || '');
       if (!str || str.length !== 8) return str;
@@ -411,12 +461,10 @@
       const groupedData = {};
       filtered.forEach(r => {
         const uniqueKey = r.barcode || `${r.dispNo}_${r.rxDate}_${r.chartNo}`;
-
         if (!groupedData[uniqueKey]) {
           groupedData[uniqueKey] = { 
             dispNo: r.dispNo,
-            dateStr: r.dateStr, 
-            rxDate: r.rxDate,
+            rxDate: r.rxDate, 
             chartNo: r.chartNo, 
             records: [] 
           };
@@ -439,6 +487,8 @@
         const group = groupedData[key];
         const dispNo = group.dispNo; 
         const collapseId = `collapseMed_${index}`;
+        
+        group.records.sort((a, b) => new Date(b.Created || 0) - new Date(a.Created || 0));
         const latestRecord = group.records[0];
 
         const latestType = latestRecord.TaskType || latestRecord.taskType || '未註記';
@@ -454,8 +504,8 @@
             <td>${group.chartNo}</td>
             <td><span class="badge ${typeBadge} fs-6">${latestType}</span></td>
             <td>
-              <span class="text-primary fw-bold">${latestRecord.staffName}</span> 
-              <span class="text-muted small ms-1">(${latestRecord.dateStr} ${latestRecord.time})</span>
+              <span class="text-primary fw-bold">${latestRecord.staffName} (${latestRecord.staffId})</span> 
+              <span class="text-muted small ms-1">${latestRecord.Created}</span>
             </td>
             <td><span class="badge bg-secondary rounded-pill">${group.records.length} 筆</span></td>
             <td>
@@ -476,7 +526,7 @@
                     else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; 
                     else if (subType !== '未註記') subTypeBadge = 'bg-warning text-dark';
                     
-                    return `<tr><td>${formatRxDate(sub.rxDate)}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName}</td><td>${sub.dateStr} ${sub.time}</td></tr>`;
+                    return `<tr><td>${formatRxDate(sub.rxDate)}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName} (${sub.staffId})</td><td>${sub.Created}</td></tr>`;
                   }).join('')}
                 </tbody>
               </table>
@@ -494,8 +544,8 @@
       const dispFilter = document.getElementById('filterDocDisp').value.trim().toLowerCase();
 
       const filtered = allDocsData.filter(r => {
-        const rawSearchText = `${r.SendNote || ''} ${r.ReceiveNote || ''} ${r.Quantity || ''} ${r.PickupNo || ''}`.toLowerCase();
-        const matchType = typeFilter === "" ? true : r.DocType === typeFilter; 
+        const rawSearchText = `${String(r.SendNote || '')} ${String(r.ReceiveNote || '')} ${String(r.Quantity || '')} ${String(r.PickupNo || '')} ${String(r.SenderName || '')} ${String(r.SenderId || '')}`.toLowerCase();
+        const matchType = typeFilter === "" ? true : String(r.DocType || '') === typeFilter; 
         const matchChart = String(r.ChartNo || '').toLowerCase().includes(chartFilter);
         const matchWard = String(r.Ward || '').toLowerCase().includes(wardFilter);
         const matchDisp = rawSearchText.includes(dispFilter);
@@ -516,15 +566,10 @@
       }
 
       tbody.innerHTML = filtered.map(r => {
-        let statusText = '待藥師收單';
         let statusBadge = 'bg-warning text-dark';
-        if (r.IsClosed) {
-            statusText = (r.ReplyOption === '收下不歸還') ? '已結案' : '已領回';
-            statusBadge = 'bg-secondary';
-        } else if (r.IsReceived) {
-            statusText = r.ReplyOption;
-            statusBadge = (r.ReplyOption === '收下不歸還') ? 'bg-success' : 'bg-danger';
-        }
+        if (r.Status === '退件') statusBadge = 'bg-danger text-white';
+        else if (r.Status.includes('已結案') || r.Status.includes('已領回') || r.Status === '收下不歸還') statusBadge = 'bg-secondary text-white';
+        else if (r.Status !== '待藥師收單') statusBadge = 'bg-primary text-white';
 
         let detailsArr = [];
         if(r.Ward) detailsArr.push(`病房: <span class="text-primary fw-bold">${r.Ward}</span>`);
@@ -532,41 +577,46 @@
         if(r.Quantity) detailsArr.push(`數量: <span class="text-danger fw-bold">${r.Quantity}</span>`);
         if(r.PickupNo) detailsArr.push(`領藥號: <span class="text-success fw-bold">${r.PickupNo}</span>`);
         
-        let sendTimeStr = r.SendTime ? new Date(r.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-        let receiveTimeStr = r.ReceiveTime ? new Date(r.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-        let returnTimeStr = r.ReturnTime ? new Date(r.ReturnTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-        let dateOnly = r.SendTime ? r.SendTime.split('T')[0] : ''; 
+        const senderStr = r.SenderId ? `${r.SenderName} (${r.SenderId})` : r.SenderName;
+        const returnerStr = r.ReturnerId ? `${r.ReturnerName} (${r.ReturnerId})` : (r.ReturnerName || '');
+        
+        const formatTime = (t) => t ? String(t).substring(5, 16).replace('-', '/') : '';
+        const sendTimeStr = formatTime(r.SendTime);
+        const receiveTimeStr = formatTime(r.ReceiveTime);
+        const returnTimeStr = formatTime(r.ReturnTime);
+        
+        const dateOnly = r.SendTime ? String(r.SendTime).substring(0, 10) : ''; 
 
         return `
         <tr>
           <td>
             <div class="fw-bold text-secondary mb-1">${dateOnly}</div>
-            <span class="badge ${statusBadge} fs-6 d-inline-block mb-1">${statusText}</span>
+            <span class="badge ${statusBadge} fs-6 d-inline-block mb-1">${r.Status}</span>
           </td>
           
           <td class="fw-bold fs-5 text-dark">${r.DocType || ''}</td>
           
           <td>
-            <div class="mb-2 text-secondary">${detailsArr.join(' | ')}</div>
-            ${r.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${r.SendNote}</div>` : ''}
+            <div class="mb-2 text-secondary">${detailsArr.join(' <span class="mx-2 text-black-50 fw-light">|</span> ')}</div>
+            ${r.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>送件備註: ${r.SendNote}</div>` : ''}
             ${r.ReceiveNote ? `<div class="bg-blue-light p-1 rounded small text-primary border mb-1" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${r.ReceiveNote}</div>` : ''}
           </td>
           
           <td>
-            <ul class="list-unstyled mb-0 small">
+            <ul class="list-unstyled mb-0 small text-muted">
               <li class="mb-1">
-                <i class="bi bi-person-walking text-dark me-1"></i>送件: <strong>${r.SenderName || ''}</strong> 
-                <span class="text-muted ms-1">(${sendTimeStr})</span>
+                <i class="bi bi-person-walking text-dark me-1"></i>送件: <strong class="text-dark">${senderStr}</strong> 
+                <span class="ms-1 text-black-50">${sendTimeStr}</span>
               </li>
               ${r.IsReceived ? `
               <li class="mb-1">
-                <i class="bi bi-capsule text-primary me-1"></i>收單: <strong class="text-primary">${r.PharmaName || ''}</strong> 
-                <span class="text-muted ms-1">(${receiveTimeStr})</span>
+                <i class="bi bi-capsule text-primary me-1"></i>藥師: <strong class="text-primary">${r.PharmaName || ''}</strong> 
+                <span class="ms-1 text-black-50">${receiveTimeStr}</span>
               </li>` : ''}
               ${r.ReturnerName ? `
               <li>
-                <i class="bi bi-check2-circle text-success me-1"></i>領回: <strong class="text-success">${r.ReturnerName}</strong> 
-                <span class="text-muted ms-1">(${returnTimeStr})</span>
+                <i class="bi bi-check2-circle text-success me-1"></i>領回: <strong class="text-success">${returnerStr}</strong> 
+                <span class="ms-1 text-black-50">${returnTimeStr}</span>
               </li>` : ''}
             </ul>
           </td>
@@ -715,7 +765,7 @@
 
       const { isConfirmed } = await Swal.fire({
         title: '確定要作廢此筆紀錄嗎？',
-        html: `領藥號：<strong class="text-danger fs-4">${record.dispenseNo}</strong><br><span class="text-muted small">作廢後將保留紀錄並標記刪除線。</span>`,
+        html: `領藥號：<strong class="text-danger fs-4">${record.dispenseNo}</strong><br><span class="text-muted small">作廢後將保留紀錄並標記刪除線，不計入統計。</span>`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#dc3545',
@@ -733,6 +783,88 @@
           Swal.fire('作廢失敗', res.message, 'error');
         }
       }
+    }
+
+    function renderDashboard() {
+      // 過濾掉已作廢的交接紀錄
+      const validUdData = allUdData.filter(d => d.status !== '已作廢');
+
+      // 1. 更新 KPI 數字
+      document.getElementById('kpi-meds').textContent = allMedsData.length;
+      document.getElementById('kpi-docs').textContent = allDocsData.length;
+      document.getElementById('kpi-ud').textContent = validUdData.length;
+
+      // 2. 準備出院帶藥/氣送資料 (環圈圖)
+      const medTypes = {};
+      allMedsData.forEach(d => {
+        const t = d.TaskType || d.taskType || '未註記';
+        medTypes[t] = (medTypes[t] || 0) + 1;
+      });
+
+      if (medChartInstance) medChartInstance.destroy();
+      medChartInstance = new Chart(document.getElementById('medChart'), {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(medTypes),
+          datasets: [{
+            data: Object.values(medTypes),
+            backgroundColor: ['#198754', '#0dcaf0', '#dc3545', '#ffc107', '#6c757d']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+      });
+
+      // 3. 準備文件收發資料 (長條圖)
+      const docTypes = {};
+      allDocsData.forEach(d => {
+        const t = d.DocType || '未註記';
+        docTypes[t] = (docTypes[t] || 0) + 1;
+      });
+      
+      if (docChartInstance) docChartInstance.destroy();
+      docChartInstance = new Chart(document.getElementById('docChart'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(docTypes),
+          datasets: [{
+            label: '文件數量',
+            data: Object.values(docTypes),
+            backgroundColor: '#0d6efd',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+
+      // 4. 準備未發藥交接資料 (長條圖，僅計算未作廢)
+      const udTypes = {};
+      validUdData.forEach(d => {
+        const t = d.problemCategory || '未註記';
+        udTypes[t] = (udTypes[t] || 0) + 1;
+      });
+
+      if (udChartInstance) udChartInstance.destroy();
+      udChartInstance = new Chart(document.getElementById('udChart'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(udTypes),
+          datasets: [{
+            label: '問題數量',
+            data: Object.values(udTypes),
+            backgroundColor: '#dc3545',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
     }
   </script>
 </body>
