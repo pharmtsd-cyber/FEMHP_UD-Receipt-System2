@@ -7,7 +7,6 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="theme.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-light">
 
@@ -42,10 +41,10 @@
           <li class="nav-item" role="presentation">
             <button class="nav-link text-primary" id="doc-tab" data-bs-toggle="tab" data-bs-target="#doc" type="button">📄 文件收發紀錄</button>
           </li>
-                    <li class="nav-item" role="presentation">
+          <li class="nav-item" role="presentation">
             <button class="nav-link text-danger fw-bold" id="undispensed-tab" data-bs-toggle="tab" data-bs-target="#undispensed" type="button">🛑 未發藥交接紀錄</button>
           </li>
-<li class="nav-item" role="presentation">
+          <li class="nav-item" role="presentation">
             <button class="nav-link text-warning fw-bold" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard" type="button">📊 統計面板</button>
           </li>
         </ul>
@@ -53,64 +52,18 @@
         <div class="tab-content" id="recordTabContent">
           
           <div class="tab-pane fade" id="dashboard" role="tabpanel">
-            <div class="row g-3 mt-2">
-              <!-- KPI 數字區 -->
-              <div class="col-md-4">
-                <div class="card bg-success text-white text-center shadow-sm border-0">
-                  <div class="card-body py-4">
-                    <h5 class="card-title fw-bold mb-3"><i class="bi bi-box-seam me-2"></i>帶藥 / 氣送總筆數</h5>
-                    <h1 class="display-4 fw-bold" id="kpi-meds">0</h1>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="card bg-primary text-white text-center shadow-sm border-0">
-                  <div class="card-body py-4">
-                    <h5 class="card-title fw-bold mb-3"><i class="bi bi-file-earmark-text me-2"></i>文件收發總筆數</h5>
-                    <h1 class="display-4 fw-bold" id="kpi-docs">0</h1>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="card bg-danger text-white text-center shadow-sm border-0">
-                  <div class="card-body py-4">
-                    <h5 class="card-title fw-bold mb-3"><i class="bi bi-exclamation-triangle me-2"></i>未發藥交接總筆數</h5>
-                    <h1 class="display-4 fw-bold" id="kpi-ud">0</h1>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- 圖表區 -->
-              <div class="col-md-6">
-                <div class="card shadow-sm border-0 h-100">
-                  <div class="card-header bg-white fw-bold text-success border-bottom border-success border-2">帶藥 / 氣送作業分佈</div>
-                  <div class="card-body" style="height: 300px;">
-                    <canvas id="medChart"></canvas>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="card shadow-sm border-0 h-100">
-                  <div class="card-header bg-white fw-bold text-primary border-bottom border-primary border-2">文件類型統計排行</div>
-                  <div class="card-body" style="height: 300px;">
-                    <canvas id="docChart"></canvas>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-12 mb-4">
-                <div class="card shadow-sm border-0">
-                  <div class="card-header bg-white fw-bold text-danger border-bottom border-danger border-2">未發藥問題分類統計</div>
-                  <div class="card-body" style="height: 300px;">
-                    <canvas id="udChart"></canvas>
-                  </div>
-                </div>
+            <div class="card shadow-sm border-0 border-top border-4 border-warning mt-2">
+              <div class="card-body p-0" style="height: 850px;">
+                <iframe title="住院藥局收發統計" width="100%" height="100%" 
+                  src="https://app.powerbi.com/reportEmbed?reportId=您的ID..." 
+                  frameborder="0" allowFullScreen="true">
+                </iframe>
               </div>
             </div>
           </div>
-          
-                    <!-- 新增：未發藥交接紀錄 區塊 -->
+
+          <!-- 未發藥交接紀錄 區塊 -->
           <div class="tab-pane fade" id="undispensed" role="tabpanel">
-            
             <!-- 藥師輸入表單 -->
             <div class="card shadow-sm border-danger mb-4">
               <div class="card-header bg-danger text-white fw-bold fs-5">
@@ -176,6 +129,7 @@
                     <th>問題分類</th>
                     <th>備註/處方建議</th>
                     <th>登錄藥師</th>
+                    <th>操作</th>
                   </tr>
                 </thead>
                 <tbody id="undispensedRecordsBody"></tbody>
@@ -183,7 +137,7 @@
             </div>
           </div>
           
-<div class="tab-pane fade show active" id="med" role="tabpanel">
+          <div class="tab-pane fade show active" id="med" role="tabpanel">
             <div class="filter-box row g-3">
               <div class="col-md-4">
                 <input type="text" id="filterMedDisp" class="form-control form-control-lg border-success" placeholder="🔍 搜尋 領藥號 (可輸入片段)...">
@@ -243,19 +197,17 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/config.js"></script>
-<script>
+  <script>
     let allMedsData = [];
     let allDocsData = [];
-    let allUdData = []; // ★ 新增這行
-    let medChartInstance = null;
-    let docChartInstance = null;
-    let udChartInstance = null;
+    let allUdData = [];
 
     document.addEventListener('DOMContentLoaded', () => {
       const now = new Date();
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       document.getElementById('startDate').value = today;
       document.getElementById('endDate').value = today;
+      document.getElementById('udRxDate').value = today;
       
       document.getElementById('filterMedDisp').addEventListener('input', renderMeds);
       document.getElementById('filterMedChart').addEventListener('input', renderMeds);
@@ -265,18 +217,14 @@
       document.getElementById('filterDocWard').addEventListener('input', renderDocs);
       document.getElementById('filterDocDisp').addEventListener('input', renderDocs);
 
-      
       document.getElementById('filterUndispensed').addEventListener('input', renderUndispensed);
-      document.getElementById('udRxDate').value = today; // 表單預設今天
-      
 
-// ★ 攔截：點擊 未發藥交接紀錄 分頁時，檢查是否已登入藥師並調整日期
+      // ★ 攔截：點擊 未發藥交接紀錄 分頁時，檢查是否已登入藥師並調整日期為近 3 天
       document.getElementById('undispensed-tab').addEventListener('show.bs.tab', async (e) => {
         const pharmaId = sessionStorage.getItem('pharmaId');
         
-        // 1. 若未登入，阻擋進入並跳出驗證
         if (!pharmaId) {
-          e.preventDefault(); 
+          e.preventDefault();
           const { value: loginId } = await Swal.fire({
             title: '藥師身分驗證',
             input: 'text',
@@ -295,23 +243,21 @@
               sessionStorage.setItem('pharmaName', res.name);
               Swal.fire({ icon: 'success', title: `歡迎 ${res.name} 藥師`, timer: 1500, showConfirmButton: false });
               
-              // 登入成功後，手動觸發切換 (這會再次觸發此事件，但這次 pharmaId 已經有了)
               const tab = new bootstrap.Tab(document.getElementById('undispensed-tab'));
               tab.show();
             } else {
               Swal.fire('登入失敗', res.message, 'error');
             }
           }
-          // 未登入時直接中斷，不執行下方的日期更改
-          return; 
+          return;
         }
 
-        // 2. 確定有權限後，將日期自動設為近 3 天
+        // 已登入：將日期自動設為近 3 天
         const end = new Date();
         const endDateStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
         
         const start = new Date();
-        start.setDate(start.getDate() - 2); // 往前推 2 天 (共 3 天)
+        start.setDate(start.getDate() - 2);
         const startDateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
 
         const currentStart = document.getElementById('startDate').value;
@@ -324,19 +270,18 @@
         }
       });
 
-      // ★ 當切換回「出院帶藥」或「文件收發紀錄」分頁時，自動將查詢時間設回「今天」 (不影響統計面板)
+      // ★ 當切換回「出院帶藥」或「文件收發紀錄」分頁時，自動將查詢時間設回「今天」 (統計面板不調整)
       const resetToTodayTabs = ['med-tab', 'doc-tab'];
       resetToTodayTabs.forEach(tabId => {
         const tabElement = document.getElementById(tabId);
         if (tabElement) {
-          tabElement.addEventListener('shown.bs.tab', (e) => {
+          tabElement.addEventListener('shown.bs.tab', () => {
             const now = new Date();
             const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
             const currentStart = document.getElementById('startDate').value;
             const currentEnd = document.getElementById('endDate').value;
 
-            // 如果目前日期不是今天，就還原成今天並重新查詢
             if (currentStart !== todayStr || currentEnd !== todayStr) {
               document.getElementById('startDate').value = todayStr;
               document.getElementById('endDate').value = todayStr;
@@ -346,21 +291,21 @@
         }
       });
 
-      // ★ 綁定表單送出事件
+      // ★ 綁定未發藥交接表單送出事件
       document.getElementById('undispensedForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const pharmaId = sessionStorage.getItem('pharmaId');
         const pharmaName = sessionStorage.getItem('pharmaName');
         
-        if(!pharmaId) {
+        if (!pharmaId) {
           Swal.fire('錯誤', '登入憑證已失效，請重新整理頁面。', 'error');
           return;
         }
 
-        const rawRxDate = document.getElementById('udRxDate').value.replace(/-/g, ''); // 轉成純數字
+        const rawRxDate = document.getElementById('udRxDate').value.replace(/-/g, '');
         const payload = {
           clinicType: document.getElementById('udClinicType').value,
-          rxDate: rawRxDate, 
+          rxDate: rawRxDate,
           dispenseNo: document.getElementById('udDispenseNo').value.trim(),
           problemCategory: document.getElementById('udCategory').value,
           note: document.getElementById('udNote').value.trim(),
@@ -375,16 +320,17 @@
         const res = await callGAS('submitUndispensedRecord', payload);
         if (res.success) {
           Toast.fire({ icon: 'success', title: '新增紀錄成功' });
-          e.target.reset(); // 清空表單
-          document.getElementById('udRxDate').value = document.getElementById('startDate').value; // 恢復成篩選器日期
-          loadRecords(); // 重新向伺服器要資料刷新清單
+          e.target.reset();
+          const now = new Date();
+          document.getElementById('udRxDate').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          loadRecords();
         } else {
           Swal.fire('失敗', res.message, 'error');
         }
         btn.disabled = false;
         btn.innerHTML = '送出';
       });
-      
+
       loadRecords();
     });
 
@@ -395,15 +341,14 @@
 
       const medBody = document.getElementById('medRecordsBody');
       const docBody = document.getElementById('docRecordsBody');
-      const udBody = document.getElementById('undispensedRecordsBody'); // ★ 新增
+      const udBody = document.getElementById('undispensedRecordsBody');
       
       medBody.innerHTML = '<tr><td colspan="7" class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2">資料讀取中...</p></td></tr>';
       docBody.innerHTML = '<tr><td colspan="4" class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">資料讀取中...</p></td></tr>';
-      udBody.innerHTML = '<tr><td colspan="7" class="text-center py-5"><div class="spinner-border text-danger"></div><p class="mt-2">資料讀取中...</p></td></tr>';
+      udBody.innerHTML = '<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-danger"></div><p class="mt-2">資料讀取中...</p></td></tr>';
 
       const payload = { startDate: start, endDate: end };
 
-      // ★ 新增取得未發藥交接紀錄
       const [medRes, docRes, udRes] = await Promise.all([
         callGAS('getDailyRecords', payload),
         callGAS('getPublicDocRecords', payload),
@@ -417,8 +362,7 @@
       populateDocTypes();
       renderMeds();
       renderDocs();
-      renderUndispensed(); // ★ 渲染新表格
-      renderDashboard(); // ★ 渲染統計圖表
+      renderUndispensed();
     }
 
     function populateDocTypes() {
@@ -434,10 +378,11 @@
       if (uniqueTypes.includes(currentVal)) select.value = currentVal;
     }
 
-    // 將 20260205 轉成 2026/02/05 格式顯示
+    // 建立一個輔助函式：將 20260205 轉成 2026/02/05 格式顯示
     function formatRxDate(rawStr) {
-      if (!rawStr || rawStr.length !== 8) return rawStr;
-      return `${rawStr.substring(0, 4)}/${rawStr.substring(4, 6)}/${rawStr.substring(6, 8)}`;
+      const str = String(rawStr || '');
+      if (!str || str.length !== 8) return str;
+      return `${str.substring(0, 4)}/${str.substring(4, 6)}/${str.substring(6, 8)}`;
     }
 
     function renderMeds() {
@@ -448,7 +393,6 @@
       const endVal = document.getElementById('endDate').value.replace(/-/g, '');
       
       const filtered = allMedsData.filter(r => {
-        // ★ 強制將可能為數字的欄位加上 String()，防止 toLowerCase() 報錯
         const matchDisp = String(r.dispNo || '').toLowerCase().includes(dispFilter);
         const matchChart = String(r.chartNo || '').toLowerCase().includes(chartFilter);
         
@@ -464,14 +408,15 @@
         return;
       }
 
-      // 歸戶邏輯
       const groupedData = {};
       filtered.forEach(r => {
         const uniqueKey = r.barcode || `${r.dispNo}_${r.rxDate}_${r.chartNo}`;
+
         if (!groupedData[uniqueKey]) {
           groupedData[uniqueKey] = { 
             dispNo: r.dispNo,
-            rxDate: r.rxDate, 
+            dateStr: r.dateStr, 
+            rxDate: r.rxDate,
             chartNo: r.chartNo, 
             records: [] 
           };
@@ -479,7 +424,6 @@
         groupedData[uniqueKey].records.push(r);
       });
 
-      // 排序：由小至大
       const sortedKeys = Object.keys(groupedData).sort((a, b) => {
         const numA = parseInt(groupedData[a].dispNo, 10);
         const numB = parseInt(groupedData[b].dispNo, 10);
@@ -487,7 +431,7 @@
           if (numA === numB) return a.localeCompare(b);
           return numA - numB; 
         } 
-        return groupedData[a].dispNo.localeCompare(groupedData[b].dispNo); 
+        return String(groupedData[a].dispNo).localeCompare(String(groupedData[b].dispNo)); 
       });
 
       let html = '';
@@ -495,9 +439,6 @@
         const group = groupedData[key];
         const dispNo = group.dispNo; 
         const collapseId = `collapseMed_${index}`;
-        
-        // 將群組內的紀錄依時間排序(最新的在前面)
-        group.records.sort((a, b) => new Date(b.Created || 0) - new Date(a.Created || 0));
         const latestRecord = group.records[0];
 
         const latestType = latestRecord.TaskType || latestRecord.taskType || '未註記';
@@ -513,8 +454,8 @@
             <td>${group.chartNo}</td>
             <td><span class="badge ${typeBadge} fs-6">${latestType}</span></td>
             <td>
-              <span class="text-primary fw-bold">${latestRecord.staffName} (${latestRecord.staffId})</span> 
-              <span class="text-muted small ms-1">${latestRecord.Created}</span>
+              <span class="text-primary fw-bold">${latestRecord.staffName}</span> 
+              <span class="text-muted small ms-1">(${latestRecord.dateStr} ${latestRecord.time})</span>
             </td>
             <td><span class="badge bg-secondary rounded-pill">${group.records.length} 筆</span></td>
             <td>
@@ -535,7 +476,7 @@
                     else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; 
                     else if (subType !== '未註記') subTypeBadge = 'bg-warning text-dark';
                     
-                    return `<tr><td>${formatRxDate(sub.rxDate)}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName} (${sub.staffId})</td><td>${sub.Created}</td></tr>`;
+                    return `<tr><td>${formatRxDate(sub.rxDate)}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName}</td><td>${sub.dateStr} ${sub.time}</td></tr>`;
                   }).join('')}
                 </tbody>
               </table>
@@ -553,9 +494,8 @@
       const dispFilter = document.getElementById('filterDocDisp').value.trim().toLowerCase();
 
       const filtered = allDocsData.filter(r => {
-        // ★ 強制將可能為數字的欄位加上 String()
-        const rawSearchText = `${String(r.SendNote || '')} ${String(r.ReceiveNote || '')} ${String(r.Quantity || '')} ${String(r.PickupNo || '')} ${String(r.SenderName || '')} ${String(r.SenderId || '')}`.toLowerCase();
-        const matchType = typeFilter === "" ? true : String(r.DocType || '') === typeFilter; 
+        const rawSearchText = `${r.SendNote || ''} ${r.ReceiveNote || ''} ${r.Quantity || ''} ${r.PickupNo || ''}`.toLowerCase();
+        const matchType = typeFilter === "" ? true : r.DocType === typeFilter; 
         const matchChart = String(r.ChartNo || '').toLowerCase().includes(chartFilter);
         const matchWard = String(r.Ward || '').toLowerCase().includes(wardFilter);
         const matchDisp = rawSearchText.includes(dispFilter);
@@ -576,10 +516,15 @@
       }
 
       tbody.innerHTML = filtered.map(r => {
+        let statusText = '待藥師收單';
         let statusBadge = 'bg-warning text-dark';
-        if (r.Status === '退件') statusBadge = 'bg-danger text-white';
-        else if (r.Status.includes('已結案') || r.Status.includes('已領回') || r.Status === '收下不歸還') statusBadge = 'bg-secondary text-white';
-        else if (r.Status !== '待藥師收單') statusBadge = 'bg-primary text-white';
+        if (r.IsClosed) {
+            statusText = (r.ReplyOption === '收下不歸還') ? '已結案' : '已領回';
+            statusBadge = 'bg-secondary';
+        } else if (r.IsReceived) {
+            statusText = r.ReplyOption;
+            statusBadge = (r.ReplyOption === '收下不歸還') ? 'bg-success' : 'bg-danger';
+        }
 
         let detailsArr = [];
         if(r.Ward) detailsArr.push(`病房: <span class="text-primary fw-bold">${r.Ward}</span>`);
@@ -587,47 +532,41 @@
         if(r.Quantity) detailsArr.push(`數量: <span class="text-danger fw-bold">${r.Quantity}</span>`);
         if(r.PickupNo) detailsArr.push(`領藥號: <span class="text-success fw-bold">${r.PickupNo}</span>`);
         
-        // ★ 對齊卡片的時間與員編格式
-        const senderStr = r.SenderId ? `${r.SenderName} (${r.SenderId})` : r.SenderName;
-        const returnerStr = r.ReturnerId ? `${r.ReturnerName} (${r.ReturnerId})` : (r.ReturnerName || '');
-        
-        const formatTime = (t) => t ? String(t).substring(5, 16).replace('-', '/') : '';
-        const sendTimeStr = formatTime(r.SendTime);
-        const receiveTimeStr = formatTime(r.ReceiveTime);
-        const returnTimeStr = formatTime(r.ReturnTime);
-        
-        const dateOnly = r.SendTime ? String(r.SendTime).substring(0, 10) : ''; 
+        let sendTimeStr = r.SendTime ? new Date(r.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+        let receiveTimeStr = r.ReceiveTime ? new Date(r.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+        let returnTimeStr = r.ReturnTime ? new Date(r.ReturnTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+        let dateOnly = r.SendTime ? r.SendTime.split('T')[0] : ''; 
 
         return `
         <tr>
           <td>
             <div class="fw-bold text-secondary mb-1">${dateOnly}</div>
-            <span class="badge ${statusBadge} fs-6 d-inline-block mb-1">${r.Status}</span>
+            <span class="badge ${statusBadge} fs-6 d-inline-block mb-1">${statusText}</span>
           </td>
           
           <td class="fw-bold fs-5 text-dark">${r.DocType || ''}</td>
           
           <td>
-            <div class="mb-2 text-secondary">${detailsArr.join(' <span class="mx-2 text-black-50 fw-light">|</span> ')}</div>
-            ${r.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>送件備註: ${r.SendNote}</div>` : ''}
+            <div class="mb-2 text-secondary">${detailsArr.join(' | ')}</div>
+            ${r.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${r.SendNote}</div>` : ''}
             ${r.ReceiveNote ? `<div class="bg-blue-light p-1 rounded small text-primary border mb-1" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${r.ReceiveNote}</div>` : ''}
           </td>
           
           <td>
-            <ul class="list-unstyled mb-0 small text-muted">
+            <ul class="list-unstyled mb-0 small">
               <li class="mb-1">
-                <i class="bi bi-person-walking text-dark me-1"></i>送件: <strong class="text-dark">${senderStr}</strong> 
-                <span class="ms-1 text-black-50">${sendTimeStr}</span>
+                <i class="bi bi-person-walking text-dark me-1"></i>送件: <strong>${r.SenderName || ''}</strong> 
+                <span class="text-muted ms-1">(${sendTimeStr})</span>
               </li>
               ${r.IsReceived ? `
               <li class="mb-1">
-                <i class="bi bi-capsule text-primary me-1"></i>藥師: <strong class="text-primary">${r.PharmaName || ''}</strong> 
-                <span class="ms-1 text-black-50">${receiveTimeStr}</span>
+                <i class="bi bi-capsule text-primary me-1"></i>收單: <strong class="text-primary">${r.PharmaName || ''}</strong> 
+                <span class="text-muted ms-1">(${receiveTimeStr})</span>
               </li>` : ''}
               ${r.ReturnerName ? `
               <li>
-                <i class="bi bi-check2-circle text-success me-1"></i>領回: <strong class="text-success">${returnerStr}</strong> 
-                <span class="ms-1 text-black-50">${returnTimeStr}</span>
+                <i class="bi bi-check2-circle text-success me-1"></i>領回: <strong class="text-success">${r.ReturnerName}</strong> 
+                <span class="text-muted ms-1">(${returnTimeStr})</span>
               </li>` : ''}
             </ul>
           </td>
@@ -639,110 +578,162 @@
       const filterText = document.getElementById('filterUndispensed').value.trim().toLowerCase();
       const tbody = document.getElementById('undispensedRecordsBody');
 
-      // 全欄位轉成小寫字串進行模糊搜尋，並依照 createdTime 降冪排序 (最新的在最上面)
       const filtered = allUdData.filter(r => {
-        const rawString = `${r.clinicType} ${r.rxDate} ${r.dispenseNo} ${r.problemCategory} ${r.note} ${r.pharmaName} ${r.pharmaId}`.toLowerCase();
+        const rawString = `${r.clinicType} ${r.rxDate} ${r.dispenseNo} ${r.problemCategory} ${r.note} ${r.pharmaName} ${r.pharmaId} ${r.status || ''}`.toLowerCase();
         return rawString.includes(filterText);
       }).sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0));
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(r => {
+        const isVoid = r.status === '已作廢';
+        const rowClass = isVoid ? 'table-light text-muted text-decoration-line-through' : '';
+        
+        const actionHtml = isVoid
+          ? `<span class="badge bg-secondary">已作廢</span>`
+          : `
+            <button class="btn btn-outline-primary btn-sm fw-bold me-1" onclick="editUndispensed('${r.signId}')">修改</button>
+            <button class="btn btn-outline-danger btn-sm fw-bold" onclick="voidUndispensed('${r.signId}')">作廢</button>
+          `;
+
         return `
-        <tr>
-          <td class="text-muted">${r.createdTime}</td>
+        <tr class="${rowClass}">
+          <td class="text-muted">
+            ${r.createdTime}
+            ${r.updateInfo ? `<div class="small text-secondary text-decoration-none">(${r.updateInfo})</div>` : ''}
+          </td>
           <td>${formatRxDate(r.rxDate)}</td>
           <td><span class="badge bg-secondary">${r.clinicType}</span></td>
-          <td class="text-danger fw-bold fs-5">${r.dispenseNo}</td>
-          <td><span class="badge bg-danger">${r.problemCategory}</span></td>
-          <td>${r.note}</td>
+          <td class="${isVoid ? 'text-muted' : 'text-danger'} fw-bold fs-5">${r.dispenseNo}</td>
+          <td><span class="badge ${isVoid ? 'bg-secondary' : 'bg-danger'}">${r.problemCategory}</span></td>
+          <td>${r.note || ''}</td>
           <td><span class="text-primary fw-bold">${r.pharmaName}</span> <span class="small text-muted">(${r.pharmaId})</span></td>
+          <td class="text-nowrap" style="text-decoration: none;">${actionHtml}</td>
         </tr>
         `;
       }).join('');
     }
 
-    function renderDashboard() {
-      // 1. 更新 KPI 數字
-      document.getElementById('kpi-meds').textContent = allMedsData.length;
-      document.getElementById('kpi-docs').textContent = allDocsData.length;
-      document.getElementById('kpi-ud').textContent = allUdData.length;
+    // ★ 藥師修改交接紀錄
+    async function editUndispensed(signId) {
+      const pharmaId = sessionStorage.getItem('pharmaId');
+      const pharmaName = sessionStorage.getItem('pharmaName');
+      if (!pharmaId) {
+        Swal.fire('錯誤', '登入憑證已失效，請重新整理頁面。', 'error');
+        return;
+      }
 
-      // 2. 準備出院帶藥/氣送資料 (環圈圖)
-      const medTypes = {};
-      allMedsData.forEach(d => {
-        const t = d.TaskType || d.taskType || '未註記';
-        medTypes[t] = (medTypes[t] || 0) + 1;
-      });
+      const record = allUdData.find(r => r.signId === signId);
+      if (!record) return;
 
-      if (medChartInstance) medChartInstance.destroy();
-      medChartInstance = new Chart(document.getElementById('medChart'), {
-        type: 'doughnut',
-        data: {
-          labels: Object.keys(medTypes),
-          datasets: [{
-            data: Object.values(medTypes),
-            backgroundColor: ['#198754', '#0dcaf0', '#dc3545', '#ffc107', '#6c757d']
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-      });
+      const rawDate = String(record.rxDate || '');
+      const formattedDate = rawDate.length === 8 
+        ? `${rawDate.substring(0,4)}-${rawDate.substring(4,6)}-${rawDate.substring(6,8)}` 
+        : '';
 
-      // 3. 準備文件收發資料 (長條圖)
-      const docTypes = {};
-      allDocsData.forEach(d => {
-        const t = d.DocType || '未註記';
-        docTypes[t] = (docTypes[t] || 0) + 1;
-      });
-      
-      if (docChartInstance) docChartInstance.destroy();
-      docChartInstance = new Chart(document.getElementById('docChart'), {
-        type: 'bar',
-        data: {
-          labels: Object.keys(docTypes),
-          datasets: [{
-            label: '文件數量',
-            data: Object.values(docTypes),
-            backgroundColor: '#0d6efd',
-            borderRadius: 4
-          }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+      const clinics = ['住院藥局', '門診藥局', '急診藥局'];
+      const categories = ['爭議處方', 'OrderRenew', '重複建檔', '物按領藥鍵', '護理師要求不發藥', '剩藥帶回', '其他(填寫備註)'];
+
+      const { value: formValues } = await Swal.fire({
+        title: '修改未發藥交接紀錄',
+        html: `
+          <div class="text-start mb-2">
+            <label class="form-label fw-bold small text-muted">診別</label>
+            <select id="edit-ud-clinic" class="form-select">
+              ${clinics.map(c => `<option value="${c}" ${c === record.clinicType ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+          </div>
+          <div class="text-start mb-2">
+            <label class="form-label fw-bold small text-muted">處方日期</label>
+            <input type="date" id="edit-ud-rxdate" class="form-control" value="${formattedDate}">
+          </div>
+          <div class="text-start mb-2">
+            <label class="form-label fw-bold small text-muted">領藥號</label>
+            <input type="text" id="edit-ud-dispno" class="form-control" value="${record.dispenseNo || ''}">
+          </div>
+          <div class="text-start mb-2">
+            <label class="form-label fw-bold small text-muted">問題分類</label>
+            <select id="edit-ud-cat" class="form-select">
+              ${categories.map(c => `<option value="${c}" ${c === record.problemCategory ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+          </div>
+          <div class="text-start">
+            <label class="form-label fw-bold small text-muted">備註/處方建議</label>
+            <textarea id="edit-ud-note" class="form-control" rows="2">${record.note || ''}</textarea>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '儲存修改',
+        cancelButtonText: '取消',
+        confirmButtonColor: '#2C5343',
+        preConfirm: () => {
+          const rxDateVal = document.getElementById('edit-ud-rxdate').value;
+          const dispNoVal = document.getElementById('edit-ud-dispno').value.trim();
+          if (!rxDateVal || !dispNoVal) {
+            Swal.showValidationMessage('處方日期與領藥號為必填！');
+            return false;
+          }
+          return {
+            signId: signId,
+            clinicType: document.getElementById('edit-ud-clinic').value,
+            rxDate: rxDateVal.replace(/-/g, ''),
+            dispenseNo: dispNoVal,
+            problemCategory: document.getElementById('edit-ud-cat').value,
+            note: document.getElementById('edit-ud-note').value.trim(),
+            pharmaId: pharmaId,
+            pharmaName: pharmaName
+          };
         }
       });
 
-      // 4. 準備未發藥交接資料 (長條圖)
-      const udTypes = {};
-      allUdData.forEach(d => {
-        const t = d.problemCategory || '未註記';
-        udTypes[t] = (udTypes[t] || 0) + 1;
-      });
-
-      if (udChartInstance) udChartInstance.destroy();
-      udChartInstance = new Chart(document.getElementById('udChart'), {
-        type: 'bar',
-        data: {
-          labels: Object.keys(udTypes),
-          datasets: [{
-            label: '問題數量',
-            data: Object.values(udTypes),
-            backgroundColor: '#dc3545',
-            borderRadius: 4
-          }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+      if (formValues) {
+        Toast.fire({ icon: 'info', title: '儲存修改中...', timer: 3000 });
+        const res = await callGAS('editUndispensedRecord', formValues);
+        if (res.success) {
+          Toast.fire({ icon: 'success', title: '修改成功' });
+          loadRecords();
+        } else {
+          Swal.fire('修改失敗', res.message, 'error');
         }
-      });
+      }
     }
-      </script>
+
+    // ★ 藥師作廢交接紀錄
+    async function voidUndispensed(signId) {
+      const pharmaId = sessionStorage.getItem('pharmaId');
+      const pharmaName = sessionStorage.getItem('pharmaName');
+      if (!pharmaId) {
+        Swal.fire('錯誤', '登入憑證已失效，請重新整理頁面。', 'error');
+        return;
+      }
+
+      const record = allUdData.find(r => r.signId === signId);
+      if (!record) return;
+
+      const { isConfirmed } = await Swal.fire({
+        title: '確定要作廢此筆紀錄嗎？',
+        html: `領藥號：<strong class="text-danger fs-4">${record.dispenseNo}</strong><br><span class="text-muted small">作廢後將保留紀錄並標記刪除線。</span>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: '確認作廢',
+        cancelButtonText: '取消'
+      });
+
+      if (isConfirmed) {
+        Toast.fire({ icon: 'info', title: '處理作廢中...', timer: 3000 });
+        const res = await callGAS('voidUndispensedRecord', { signId, pharmaId, pharmaName });
+        if (res.success) {
+          Toast.fire({ icon: 'success', title: '已作廢該筆紀錄' });
+          loadRecords();
+        } else {
+          Swal.fire('作廢失敗', res.message, 'error');
+        }
+      }
+    }
+  </script>
 </body>
 </html>
